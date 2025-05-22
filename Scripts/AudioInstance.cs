@@ -1,0 +1,184 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using FMODUnity;
+using FMOD.Studio;
+
+namespace RaytracedAudio
+{
+    public class AudioInstance
+    {
+        internal EventInstance clip;
+        internal AudioTracer.TraceInput traceInput = null;
+        internal AudioZones.ZoneInput zoneInput = null;
+        internal FMOD.DSP reverbFilter;
+        internal FMOD.DSP lowpassFilter;
+        internal Transform parentTrans = null;
+        internal State state;
+        internal AudioEffects audioEffects = AudioEffects.all;
+
+        /// <summary>
+        /// Worldspace real position of the source
+        /// </summary>
+        internal Vector3 position = Vector3.zero;
+        /// <summary>
+        /// Worldspace direction where the sound is coming from (Direction from player ear pos)
+        /// </summary>
+        internal Vector3 direction = Vector3.zero;
+        /// <summary>
+        /// Worldspace occluded distance from the player ear pos to the source
+        /// </summary>
+        internal float distance = 0.0f;
+        /// <summary>
+        /// If parentTrans != null, this is the local position of the source relative to parentTrans
+        /// </summary>
+        internal Vector3 posL = Vector3.zero;
+
+        internal FMOD.ATTRIBUTES_3D fmod3D = new()
+        {
+            forward = new() { x = 0, y = 0, z = 1 },
+            up = new() { x = 0, y = 1, z = 0 },
+        };
+
+        internal enum State
+        {
+            pendingCreation = 0,
+            pendingPlay = 10,
+            playing = 20,
+            pendingDestroy = 30,
+            destroyed = 40
+        }
+
+        public void SetProps(AudioProps newProps)
+        {
+            if (newProps == null) return;
+
+            SetPosition(newProps.pos);
+            if (newProps.customProps != null) SetCustomProps(newProps.customProps);
+        }
+
+        /// <summary>
+        /// Does not check if newCustomProps is null
+        /// </summary>
+        public void SetCustomProps(CustomProp[] newCustomProps)
+        {
+            foreach (CustomProp prop in newCustomProps)
+            {
+                clip.setParameterByName(prop.name, prop.value);
+            }
+        }
+
+        public void SetCustomProp(CustomProp prop)
+        {
+            clip.setParameterByName(prop.name, prop.value);
+        }
+
+        public void SetCustomProp(string name, float value)
+        {
+            clip.setParameterByName(name, value);
+        }
+
+        public void SetPosition(Vector3 newPos)
+        {
+            if (parentTrans != null) posL = parentTrans.InverseTransformPoint(newPos);
+            position = newPos;
+        }
+
+        public void SetParent(Transform newParent)
+        {
+            //Clear old parent
+            if (parentTrans != null) parentTrans = null;
+            if (newParent == parentTrans) return;
+
+            //newParent is garanteed to not be null here
+            posL = newParent.InverseTransformPoint(position);
+            parentTrans = newParent;
+        }
+
+        /// <summary>
+        /// Returns true if the source is currently playing any clip
+        /// </summary>
+        public bool IsPlaying()
+        {
+            return true;//Sources are destroyed when not playing, so always true
+        }
+
+        /// <summary>
+        /// Stops playing this source. if immediately == false, FMOD fadeout is allowed
+        /// </summary>
+        public void Stop(bool immediately = false)
+        {
+            state = State.pendingDestroy;
+            clip.stop(immediately == false ? FMOD.Studio.STOP_MODE.ALLOWFADEOUT
+                : FMOD.Studio.STOP_MODE.IMMEDIATE);
+        }
+
+        /// <summary>
+        /// Pauses or unpauses this source (Wont unpause if audio is paused globally)
+        /// </summary>
+        public void SetPaused(bool toPasued)
+        {
+            clip.setPaused(toPasued);
+        }
+
+        #region Effects
+
+        internal void TickSource(float deltaTime)
+        {
+            //Update state
+            if (state == State.pendingPlay && (traceInput == null || traceInput.resultIsReady == true)
+                && (zoneInput == null || zoneInput.resultIsReady == true))
+            {
+                clip.start();
+                state = State.playing;
+                Debug.Log("Played");
+            }
+
+            if (state != State.playing) return;
+
+            //Update 3D
+            //Update pos
+            if (parentTrans != null)
+            {
+                position = parentTrans.TransformPoint(posL);
+            }
+
+            //Update effects
+            if (traceInput != null)
+            {
+                direction = traceInput.resDirection;
+                distance = traceInput.resDistance;
+
+                //Bounce brightness (0.0 == di0, de100: 0.5 == di50, de50, 1.0, di100, de0)
+                reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DIFFUSION, Mathf.Lerp(0.0f, 100.0f, traceInput.resSurface.brightness));
+                reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DENSITY, Mathf.Lerp(100.0f, 0.0f, traceInput.resSurface.brightness));
+
+                reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.HIGHCUT, Mathf.Lerp(20.0f, 4000.0f, traceInput.resSurface.metallicness));
+
+                reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.EARLYLATEMIX, Mathf.Lerp(0.0f, 66.0f, traceInput.resSurface.tail * 2.0f));
+                reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.HFDECAYRATIO, Mathf.Lerp(0.0f, 100.0f, (traceInput.resSurface.tail - 0.5f) * 2.0f));
+
+                //float wetL = Mathf.Lerp(-80.0f, 20.0f, traceData.resSurface.reflectness);
+                //float wetL = Mathf.Lerp(-80.0f, 20.0f, traceData.resSurface.reflectness);
+                float wetL = 10.377f * Mathf.Log(Mathf.Clamp01(traceInput.resSurface.reflectness)) + 95.029f; 
+                reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DECAYTIME, Mathf.Exp(0.0981f * wetL));
+                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DECAYTIME, 2.0f * Mathf.Exp(0.0906f * (wetL + 80.00001f)));
+
+                lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, -2409 * Mathf.Log(traceInput.resSurface.passthrough) - 217.15f);
+            }
+            else
+            {
+                direction = (position - AudioManager.camPos).normalized;
+                distance = (position - AudioManager.camPos).magnitude;
+            }
+
+            //Apply 3D
+            fmod3D.position = (AudioManager.camPos + (direction * distance)).ToFMODVector();
+            clip.set3DAttributes(fmod3D);
+        }
+
+        #endregion Effects
+    }
+}
+
+

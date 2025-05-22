@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="Studio.02.03.00">
+	<object class="AudioFile" id="{04ca26c7-958d-486e-92a3-ce283474ea55}">
+		<property name="assetPath">
+			<value>intenseLoop.mp3</value>
+		</property>
+		<property name="isStreaming">
+			<value>true</value>
+		</property>
+		<property name="frequencyInKHz">
+			<value>24</value>
+		</property>
+		<property name="channelCount">
+			<value>2</value>
+		</property>
+		<property name="length">
+			<value>12.432</value>
+		</property>
+		<relationship name="masterAssetFolder">
+			<destination>{66f22902-b8b7-4f23-a7f4-fd879f5f2d56}</destination>
+		</relationship>
+	</object>
+</objects>

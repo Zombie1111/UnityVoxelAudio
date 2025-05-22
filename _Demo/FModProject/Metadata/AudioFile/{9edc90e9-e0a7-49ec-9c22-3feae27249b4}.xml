@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="Studio.02.03.00">
+	<object class="AudioFile" id="{9edc90e9-e0a7-49ec-9c22-3feae27249b4}">
+		<property name="assetPath">
+			<value>plasmaShoot3.mp3</value>
+		</property>
+		<property name="frequencyInKHz">
+			<value>24</value>
+		</property>
+		<property name="channelCount">
+			<value>2</value>
+		</property>
+		<property name="length">
+			<value>0.91200000000000003</value>
+		</property>
+		<relationship name="masterAssetFolder">
+			<destination>{66f22902-b8b7-4f23-a7f4-fd879f5f2d56}</destination>
+		</relationship>
+	</object>
+</objects>
