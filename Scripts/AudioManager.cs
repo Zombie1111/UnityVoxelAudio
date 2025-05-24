@@ -3,6 +3,7 @@ using FMODUnity;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using UnityEngine;
 
 namespace RaytracedAudio
@@ -154,9 +155,10 @@ namespace RaytracedAudio
                 return ai;
             }
 
-            //Get source
+            //Get audio instance
             ai = new AudioInstance
             {
+                callback = new EVENT_CALLBACK(EventCallback),
                 clip = RuntimeManager.CreateInstance(config.clip),
                 state = AudioInstance.State.pendingCreation,
                 audioEffects = config.audioEffects,
@@ -165,6 +167,7 @@ namespace RaytracedAudio
             ai.traceInput = ai.audioEffects.HasTracing() == true ? AudioTracer.CreateTraceInput(ai) : null;
             ai.zoneInput = ai.audioEffects.HasZones() == true ? AudioZones.CreateZoneInput(ai) : null;
 
+            //Register audio instance
             config.lastPlayedEventHandle = ai.clip.handle;
 
             lock (aiContainersLock)
@@ -172,7 +175,7 @@ namespace RaytracedAudio
                 handleToAI.Add(ai.clip.handle, ai);
                 allAIs.Add(ai);
             }
-
+            
             //Configure
             if (props != null) ai.fmod3D.position = props.pos.ToFMODVector();
             ai.clip.set3DAttributes(ai.fmod3D);//Must be called to not get warning
@@ -180,13 +183,26 @@ namespace RaytracedAudio
             ai.SetProps(props);
 
             //Callbacks
-            ai.clip.setCallback(EventCallback, FMOD.Studio.EVENT_CALLBACK_TYPE.CREATED | EVENT_CALLBACK_TYPE.STOPPED | FMOD.Studio.EVENT_CALLBACK_TYPE.DESTROYED);
+            EVENT_CALLBACK_TYPE callMask = FMOD.Studio.EVENT_CALLBACK_TYPE.CREATED | EVENT_CALLBACK_TYPE.STOPPED | FMOD.Studio.EVENT_CALLBACK_TYPE.DESTROYED;
+
+            if (config.timelineCallbacks == true)
+            {
+                ai.latestTimelineData = new();
+                callMask |= EVENT_CALLBACK_TYPE.TIMELINE_MARKER | EVENT_CALLBACK_TYPE.TIMELINE_BEAT;
+            }
+            else ai.latestTimelineData = null;
+
+            if (config.programmerSounds == true)
+            {
+                callMask |= EVENT_CALLBACK_TYPE.CREATE_PROGRAMMER_SOUND | EVENT_CALLBACK_TYPE.DESTROY_PROGRAMMER_SOUND;
+            }
+
+            ai.clip.setCallback(ai.callback, callMask);
             return ai;
         }
 
-        //I will need to implement timeline callbacks
-        //https://www.fmod.com/docs/2.00/unity/examples-timeline-callbacks.html
-        private static FMOD.RESULT EventCallback(FMOD.Studio.EVENT_CALLBACK_TYPE type, IntPtr instance, IntPtr parameters)
+        [AOT.MonoPInvokeCallback(typeof(FMOD.Studio.EVENT_CALLBACK))]
+        private static FMOD.RESULT EventCallback(FMOD.Studio.EVENT_CALLBACK_TYPE type, IntPtr instance, IntPtr parameterPtr)
         {
             //Not invoked from main thread
             AudioManager am = _instance;
@@ -205,6 +221,18 @@ namespace RaytracedAudio
                 case EVENT_CALLBACK_TYPE.DESTROYED:
                     OnDestroy();
                     break;
+                case EVENT_CALLBACK_TYPE.TIMELINE_BEAT:
+                    OnTimeline(true);
+                    break;
+                case EVENT_CALLBACK_TYPE.TIMELINE_MARKER:
+                    OnTimeline(false);
+                    break;
+                case EVENT_CALLBACK_TYPE.CREATE_PROGRAMMER_SOUND:
+                    OnProgrammerSound(false);
+                    break;
+                case EVENT_CALLBACK_TYPE.DESTROY_PROGRAMMER_SOUND:
+                    OnProgrammerSound(true);
+                    break;
                 default:
                     result = FMOD.RESULT.ERR_BADCOMMAND;
                     Debug.LogError(type + " not expected " + instance);
@@ -212,6 +240,42 @@ namespace RaytracedAudio
             }
 
             return result;
+
+            //https://www.fmod.com/docs/2.00/unity/examples-timeline-callbacks.html
+            void OnTimeline(bool isBeat)
+            {
+                if (isBeat == true)
+                {
+                    ai.latestTimelineData.lastBeat = (TIMELINE_BEAT_PROPERTIES)Marshal.PtrToStructure(parameterPtr, typeof(TIMELINE_BEAT_PROPERTIES));
+                }
+                else
+                {
+                    ai.latestTimelineData.lastMarker = (TIMELINE_MARKER_PROPERTIES)Marshal.PtrToStructure(parameterPtr, typeof(TIMELINE_MARKER_PROPERTIES));
+                }
+
+                ai.InvokeAudioCallback(isBeat == true ? AudioCallback.beat : AudioCallback.marker);
+            }
+
+            //https://fmod.com/docs/2.02/unity/examples-programmer-sounds.html
+            void OnProgrammerSound(bool finished)
+            {
+                var psProps = (PROGRAMMER_SOUND_PROPERTIES)Marshal.PtrToStructure(parameterPtr, typeof(PROGRAMMER_SOUND_PROPERTIES));
+                var psInput = ai.InvokeProgrammerSound(psProps.name, finished);
+
+                if (finished == false)
+                {
+                    psProps.sound = psInput.soundToPlay.handle;
+                    psProps.subsoundIndex = psInput.subsoundIndex;
+                    Marshal.StructureToPtr(psProps, parameterPtr, false);
+
+                    return;
+                }
+
+                if (psInput != null) Debug.LogError("OnProgrammerSound should always return null if finished == true, sound wont be disposed!");
+
+                var sound = new FMOD.Sound(psProps.sound);
+                sound.release();
+            }
 
             void OnCreated()
             {
@@ -291,6 +355,7 @@ namespace RaytracedAudio
 
             void OnStopped()//Does not get called on exit playmode (But release() aint needed then neither)
             {
+                ai.InvokeAudioCallback(AudioCallback.stopped);
                 ai.Dispose(false);
 
                 lock (ai.selfLock)
@@ -311,7 +376,12 @@ namespace RaytracedAudio
 
                 lock (ai.selfLock)
                 {
-                    if (ai.state != AudioInstance.State.pendingDestroy) ai.Dispose(true);
+                    if (ai.state != AudioInstance.State.pendingDestroy)
+                    {
+                        ai.InvokeAudioCallback(AudioCallback.stopped);
+                        ai.Dispose(true);
+                    }
+
                     ai.state = AudioInstance.State.destroyed;
                 }
             }

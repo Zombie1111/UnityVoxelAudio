@@ -253,6 +253,8 @@ MonoBehaviour:
     audioEffects: 0
     singletone: 0
     attatchTo: {fileID: 1121677709}
+    timelineCallbacks: 1
+    programmerSounds: 1
 --- !u!4 &1121677709
 Transform:
   m_ObjectHideFlags: 0
@@ -309,6 +311,8 @@ MonoBehaviour:
     audioEffects: 0
     singletone: 0
     attatchTo: {fileID: 1147188416}
+    timelineCallbacks: 1
+    programmerSounds: 1
 --- !u!4 &1147188416
 Transform:
   m_ObjectHideFlags: 0
@@ -366,6 +370,8 @@ MonoBehaviour:
     audioEffects: 0
     singletone: 0
     attatchTo: {fileID: 0}
+    timelineCallbacks: 0
+    programmerSounds: 0
 --- !u!4 &1367513698
 Transform:
   m_ObjectHideFlags: 0

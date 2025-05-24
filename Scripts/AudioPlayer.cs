@@ -49,6 +49,7 @@ namespace RaytracedAudio
             }
 
             AudioInstance ai = audioConfig.Play(props);
+            
             if (isPaused == true) ai.SetPaused(true);
             ais.Add(ai);
             return ai;

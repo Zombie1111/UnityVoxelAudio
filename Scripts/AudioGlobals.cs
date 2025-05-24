@@ -63,6 +63,8 @@ namespace RaytracedAudio
         [Tooltip("If true calling this.Play() if already playing will update the already playing clip properties instead of creating a new instance")]
         [SerializeField] internal bool singletone = false;
         [SerializeField] internal Transform attatchTo = null;
+        [SerializeField] internal bool timelineCallbacks = false;
+        [SerializeField] internal bool programmerSounds = false;
 
         /// <summary>
         /// Does not affect already playing clips, call AudioInstance.SetParent() to change the parent of already playing clips
@@ -142,6 +144,35 @@ namespace RaytracedAudio
         bypassTracing = 10,
         bypassZones = 11,
         bypassAll = 20
+    }
+
+    public enum AudioCallback
+    {
+        /// <summary>
+        /// When the sound actually starts playing
+        /// </summary>
+        started = 0,
+        beat = 10,
+        marker = 11,
+        stopped = 20,
+    }
+
+    public class AudioTimelineData
+    {
+        public TIMELINE_BEAT_PROPERTIES lastBeat;
+        public TIMELINE_MARKER_PROPERTIES lastMarker;
+    }
+
+    public class ProgrammerSoundInput
+    {
+        public ProgrammerSoundInput(FMOD.Sound soundToPlay, int subsoundIndex = -1)
+        {
+            this.soundToPlay = soundToPlay;
+            this.subsoundIndex = subsoundIndex;
+        }
+
+        internal readonly FMOD.Sound soundToPlay;
+        internal readonly int subsoundIndex = -1;
     }
 
     public static class AudioHelpMethods

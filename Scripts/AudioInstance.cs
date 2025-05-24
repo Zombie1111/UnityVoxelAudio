@@ -9,6 +9,7 @@ namespace RaytracedAudio
     public class AudioInstance
     {
         internal EventInstance clip;
+        internal EVENT_CALLBACK callback;
         internal AudioTracer.TraceInput traceInput = null;
         internal AudioZones.ZoneInput zoneInput = null;
 
@@ -57,6 +58,39 @@ namespace RaytracedAudio
             forward = new() { x = 0, y = 0, z = 1 },
             up = new() { x = 0, y = 1, z = 0 },
         };
+
+        internal AudioTimelineData latestTimelineData = null;
+
+        public delegate void Event_OnAudioCallback(AudioInstance ai, AudioCallback type, AudioTimelineData timelineData);
+        /// <summary>
+        /// Not invoked from main thread, timelineData and beat/marker type is only valid/only occures if AudioConfig.timelineCallbacks == true!
+        /// (Please subscribe directly after calling PlaySound and always unsubscribe in this.OnAudioCallback when type == Stopped)
+        /// </summary>
+        public event Event_OnAudioCallback OnAudioCallback;
+
+        internal void InvokeAudioCallback(AudioCallback type)
+        {
+            OnAudioCallback?.Invoke(this, type, latestTimelineData);
+        }
+
+        public delegate ProgrammerSoundInput Event_OnProgrammerSound(AudioInstance ai, string programmerName, bool finished);
+        /// <summary>
+        /// Only invoked if AudioConfig.programmerSounds == true, not invoked from main thread!
+        /// (Please subscribe directly after calling PlaySound and always unsubscribe in this.OnAudioCallback when type == Stopped)
+        /// Should always return null if finished == true and never return null if its false
+        /// </summary>
+        public event Event_OnProgrammerSound OnProgrammerSound;
+
+        internal ProgrammerSoundInput InvokeProgrammerSound(string programmerName, bool finished)
+        {
+            if (OnProgrammerSound == null)
+            {
+                Debug.LogError("Nothing is subscribed to OnProgrammerSound, either set AudioConfig.programmerSounds false or subscribe!");
+                return null;
+            }
+
+            return OnProgrammerSound.Invoke(this, programmerName, finished);
+        }
 
         internal enum State
         {
@@ -127,10 +161,6 @@ namespace RaytracedAudio
         public void Stop(bool immediately = false)
         {
             if (clip.isValid() == false) return;
-            lock (selfLock)
-            {
-                state = State.pendingDestroy;
-            }
 
             clip.stop(immediately == false ? FMOD.Studio.STOP_MODE.ALLOWFADEOUT
                 : FMOD.Studio.STOP_MODE.IMMEDIATE);
@@ -156,6 +186,7 @@ namespace RaytracedAudio
                     && (zoneInput == null || zoneInput.resultIsReady == true))
                 {
                     clip.start();
+                    InvokeAudioCallback(AudioCallback.started);
                     state = State.playing;
                 }
 
