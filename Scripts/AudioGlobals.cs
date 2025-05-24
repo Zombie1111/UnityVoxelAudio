@@ -1,12 +1,62 @@
 using System;
 using UnityEngine;
 using FMODUnity;
+using FMOD.Studio;
 
 namespace RaytracedAudio
 {
     [System.Serializable]
+    public class BusConfig
+    {
+        [SerializeField] internal string path = string.Empty;
+        [SerializeField] private bool isPausable = true;
+
+        private Bus bus = new(IntPtr.Zero);
+
+        internal void VerifyBus()
+        {
+            if (bus.hasHandle() == true) return;
+            bus = RuntimeManager.GetBus("bus:/" + path);
+        }
+
+        public void SetPaused(bool pause, bool forceSet = false)
+        {
+            if (isPausable == false && forceSet == false) return;
+
+            VerifyBus();
+            bus.setPaused(pause);
+        }
+
+        public void StopAll(FMOD.Studio.STOP_MODE mode = FMOD.Studio.STOP_MODE.ALLOWFADEOUT, bool forceStop = false)
+        {
+            if (isPausable == false && forceStop == false) return;
+
+            VerifyBus();
+            bus.stopAllEvents(mode);
+        }
+
+        public void SetVolume(float newVolume)
+        {
+            bus.setVolume(newVolume);
+        }
+    }
+
+    [System.Serializable]
     public class AudioConfig
     {
+        public AudioConfig()
+        {
+
+        }
+
+        public AudioConfig(string eventPath, Transform attatchTo = null, AudioEffects audioEffects = AudioEffects.all, bool singletone = false)
+        {
+            clip = EventReference.Find(eventPath);
+            this.attatchTo = attatchTo;
+            this.audioEffects = audioEffects;
+            this.singletone = singletone;
+        }
+
         [SerializeField] internal EventReference clip;
         [SerializeField] internal AudioEffects audioEffects = AudioEffects.all;
 
@@ -23,21 +73,64 @@ namespace RaytracedAudio
         }
         
         internal IntPtr lastPlayedEventHandle = IntPtr.Zero;
-        
-        public AudioInstance Play(AudioProps props = null)
+
+        public AudioInstance Play()
+        {
+            return AudioManager._instance.PlaySound(this, attatchTo != null ? new(attatchTo.position) : new());
+        }
+
+        public AudioInstance Play(AudioProps props)
         {
             return AudioManager._instance.PlaySound(this, props);
+        }
+
+        public AudioInstance Play(Vector3 pos)
+        {
+            return AudioManager._instance.PlaySound(this, new(pos));
         }
     }
 
     public class AudioProps
     {
+        public AudioProps()
+        {
+
+        }
+
+        public AudioProps(Vector3 pos)
+        {
+            this.pos = pos;
+        }
+
+        public AudioProps(Vector3 pos, CustomProp[] customProps)
+        {
+            this.pos = pos;
+            this.customProps = customProps;
+        }
+
+        public AudioProps(Vector3 pos, string propName, float propValue)
+        {
+            this.pos = pos;
+            customProps = new CustomProp[1] { new(propName, propValue) };
+        }
+
         public Vector3 pos = Vector3.zero;
         public CustomProp[] customProps = null;
     }
 
     public class CustomProp
     {
+        public CustomProp()
+        {
+
+        }
+
+        public CustomProp(string name, float value)
+        {
+            this.name = name;
+            this.value = value;
+        }
+
         public string name;
         public float value;
     }
@@ -51,25 +144,28 @@ namespace RaytracedAudio
         bypassAll = 20
     }
 
-    public static class AudioGlobals
+    public static class AudioHelpMethods
     {
-        internal static AudioEffects globalAudioEffects = AudioEffects.all;
-
         public static bool HasTracing(this AudioEffects aEffects)
         {
             return (aEffects == AudioEffects.all || aEffects == AudioEffects.bypassZones)
-                && (globalAudioEffects == AudioEffects.all || globalAudioEffects == AudioEffects.bypassZones);
+                && (AudioSettings._globalAudioEffects == AudioEffects.all || AudioSettings._globalAudioEffects == AudioEffects.bypassZones);
         }
 
         public static bool HasZones(this AudioEffects aEffects)
         {
             return (aEffects == AudioEffects.all || aEffects == AudioEffects.bypassTracing)
-                && (globalAudioEffects == AudioEffects.all || globalAudioEffects == AudioEffects.bypassTracing);
+                && (AudioSettings._globalAudioEffects == AudioEffects.all || AudioSettings._globalAudioEffects == AudioEffects.bypassTracing);
         }
 
         public static bool HasAny(this AudioEffects aEffects)
         {
-            return aEffects != AudioEffects.bypassAll && globalAudioEffects != AudioEffects.bypassAll;
+            return aEffects != AudioEffects.bypassAll && AudioSettings._globalAudioEffects != AudioEffects.bypassAll;
+        }
+
+        internal static bool IsActive(this AudioInstance.State state)
+        {
+            return (int)state < 25;
         }
     }
 }

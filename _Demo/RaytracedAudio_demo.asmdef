@@ -1,0 +1,16 @@
+{
+    "name": "RaytracedAudio_demo",
+    "rootNamespace": "",
+    "references": [
+        "GUID:3fcd67fc487a62a4fa00da3b2db04cd5"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

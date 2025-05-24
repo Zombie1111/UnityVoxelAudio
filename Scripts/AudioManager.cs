@@ -3,7 +3,6 @@ using FMODUnity;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
 
 namespace RaytracedAudio
@@ -24,7 +23,7 @@ namespace RaytracedAudio
                 {
                     GameObject newObj = new("Audio Manager")
                     {
-                        hideFlags = HideFlags.HideAndDontSave
+                        hideFlags = HideFlags.HideAndDontSave//FMod freezes if this is not true
                     };
 
                     instance = newObj.AddComponent<AudioManager>();
@@ -42,11 +41,6 @@ namespace RaytracedAudio
         #endregion Singleton
 
         #region Main
-
-        private void Awake()
-        {
-            Init();
-        }
 
         private bool isInitilized = false;
         private StudioListener listener = null;
@@ -90,6 +84,13 @@ namespace RaytracedAudio
         {
             if (isInitilized == false) return;
             isInitilized = false;
+
+            foreach (AudioInstance ai in GetSafeAllAIs())
+            {
+                ai.Dispose(true);
+            }
+
+            AudioSettings.StopAudio(true, true);
         }
 
         /// <summary>
@@ -107,18 +108,41 @@ namespace RaytracedAudio
             //Tick sources
             float deltaTime = Time.deltaTime;
 
-            foreach (AudioInstance ai in allAIs)
+            foreach (AudioInstance ai in GetSafeAllAIs())
             {
                 ai.TickSource(deltaTime);
             }
+        }
+
+        private void OnDisable()
+        {
+            if (enabled == true && gameObject.activeInHierarchy == true) return;
+            Debug.LogError("The audio manager should never be disabled!");
         }
 
         #endregion Main
 
         #region Play/Stop sounds
 
+        internal static readonly object aiContainersLock = new();
+        /// <summary>
+        /// Must be locked with aiContainersLock when adding/removing
+        /// </summary>
         private readonly Dictionary<IntPtr, AudioInstance> handleToAI = new(32);
+        /// <summary>
+        /// Must be locked with aiContainersLock when adding/removing
+        /// </summary>
         private readonly List<AudioInstance> allAIs = new(32);
+        private AudioInstance[] GetSafeAllAIs()
+        {
+            AudioInstance[] ais;
+            lock (aiContainersLock)
+            {
+                ais = allAIs.ToArray();
+            }
+
+            return ais;
+        }
 
         public AudioInstance PlaySound(AudioConfig config, AudioProps props = null)
         {
@@ -135,14 +159,19 @@ namespace RaytracedAudio
             {
                 clip = RuntimeManager.CreateInstance(config.clip),
                 state = AudioInstance.State.pendingCreation,
+                audioEffects = config.audioEffects,
             };
 
-            ai.traceInput = config.audioEffects.HasTracing() == true ? AudioTracer.CreateTraceInput(ai) : null;
-            ai.zoneInput = config.audioEffects.HasZones() == true ? AudioZones.CreateZoneInput(ai) : null;
+            ai.traceInput = ai.audioEffects.HasTracing() == true ? AudioTracer.CreateTraceInput(ai) : null;
+            ai.zoneInput = ai.audioEffects.HasZones() == true ? AudioZones.CreateZoneInput(ai) : null;
 
             config.lastPlayedEventHandle = ai.clip.handle;
-            handleToAI.Add(ai.clip.handle, ai);
-            allAIs.Add(ai);
+
+            lock (aiContainersLock)
+            {
+                handleToAI.Add(ai.clip.handle, ai);
+                allAIs.Add(ai);
+            }
 
             //Configure
             if (props != null) ai.fmod3D.position = props.pos.ToFMODVector();
@@ -155,8 +184,11 @@ namespace RaytracedAudio
             return ai;
         }
 
+        //I will need to implement timeline callbacks
+        //https://www.fmod.com/docs/2.00/unity/examples-timeline-callbacks.html
         private static FMOD.RESULT EventCallback(FMOD.Studio.EVENT_CALLBACK_TYPE type, IntPtr instance, IntPtr parameters)
         {
+            //Not invoked from main thread
             AudioManager am = _instance;
 
             FMOD.RESULT result = FMOD.RESULT.OK;
@@ -183,25 +215,18 @@ namespace RaytracedAudio
 
             void OnCreated()
             {
-                if (ai.state != AudioInstance.State.pendingCreation)
-                {
-                    Debug.Log(instance + " was not pending creation??");
-                    return;
-                }
-
                 if (ai.audioEffects.HasAny() == true)
                 {
                     //https://bobthenameless.github.io/fmod-studio-docs/generated/FMOD_DSP_SFXREVERB.html
                     //https://bobthenameless.github.io/fmod-studio-docs/generated/FMOD_REVERB_PRESETS.html
                     result = ai.clip.getChannelGroup(out FMOD.ChannelGroup cg);
-                    RuntimeManager.CoreSystem.createDSPByType(FMOD.DSP_TYPE.LOWPASS_SIMPLE, out ai.lowpassFilter);
-
                     if (result != FMOD.RESULT.OK)
                     {
                         Debug.LogError("Error getting ChannelGroup for " + instance);
                         return;
                     }
 
+                    RuntimeManager.CoreSystem.createDSPByType(FMOD.DSP_TYPE.LOWPASS_SIMPLE, out ai.lowpassFilter);
                     ai.lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, 17000.0f);//Decrease based on underwater and behind wall, 400~ sounded good for water
                     cg.addDSP(1, ai.lowpassFilter);
 
@@ -253,67 +278,48 @@ namespace RaytracedAudio
                         //ss.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.EARLYLATEMIX, 66.0f);
                         //ss.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.WETLEVEL, 1.2f);
                         //ss.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DRYLEVEL, 0.0f);
-
+                        
                         cg.addDSP(0, ai.reverbFilter);
                     }
                 }
 
-                ai.state = AudioInstance.State.pendingPlay;
-                Debug.Log("Created");
+                lock (ai.selfLock)
+                {
+                    ai.state = AudioInstance.State.pendingPlay;
+                }
             }
 
             void OnStopped()//Does not get called on exit playmode (But release() aint needed then neither)
             {
-                ai.clip.release();//Dispose
-                ai.state = AudioInstance.State.pendingDestroy;
-                Debug.Log("Stopped");
+                ai.Dispose(false);
+
+                lock (ai.selfLock)
+                {
+                    ai.state = AudioInstance.State.pendingDestroy;
+                }
             }
 
             void OnDestroy()
             {
                 AudioTracer.RemoveTraceInput(ai.traceInput);
-                am.allAIs.Remove(ai);
-                am.handleToAI.Remove(instance);
 
-                ai.state = AudioInstance.State.destroyed;
-                Debug.Log("Destoyed");
+                lock (aiContainersLock)
+                {
+                    am.allAIs.Remove(ai);
+                    am.handleToAI.Remove(instance);
+                }
+
+                lock (ai.selfLock)
+                {
+                    if (ai.state != AudioInstance.State.pendingDestroy) ai.Dispose(true);
+                    ai.state = AudioInstance.State.destroyed;
+                }
             }
         }
 
         #endregion Play/Stop sounds
 
-        private static bool audioIsPaused = false;
-        private static readonly List<string> pausableBusPaths = new()
-        {
-            "bus:/Player",
-            "bus:/Enviroment"
-        };
-
-        /// <summary>
-        /// Pauses or unpauses all pausable audio sources (Wont unpause sources paused separately)
-        /// </summary>
-        public static void SetAudioPaused(bool toPaused)
-        {
-            if (audioIsPaused == toPaused) return;
-            audioIsPaused = toPaused;
-
-            foreach (string path in pausableBusPaths)
-            {
-                RuntimeManager.GetBus(path).setPaused(toPaused);
-            }
-        }
-
-        /// <summary>
-        /// Stops all pausable audio sources. if immediately == false, FMOD fadeout is allowed
-        /// </summary>
-        public static void StopAudio(bool immediately = false)
-        {
-            foreach (string path in pausableBusPaths)
-            {
-                RuntimeManager.GetBus(path).stopAllEvents(immediately == false ? FMOD.Studio.STOP_MODE.ALLOWFADEOUT
-                    : FMOD.Studio.STOP_MODE.IMMEDIATE);
-            }
-        }
+        
     }
 }
 

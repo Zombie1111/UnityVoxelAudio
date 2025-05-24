@@ -11,10 +11,28 @@ namespace RaytracedAudio
         internal EventInstance clip;
         internal AudioTracer.TraceInput traceInput = null;
         internal AudioZones.ZoneInput zoneInput = null;
+
+        /// <summary>
+        /// Assign only allowed on creation
+        /// </summary>
         internal FMOD.DSP reverbFilter;
+
+        /// <summary>
+        /// Assign only allowed on creation
+        /// </summary>
         internal FMOD.DSP lowpassFilter;
         internal Transform parentTrans = null;
+
+        internal readonly object selfLock = new();
+
+        /// <summary>
+        /// Must be locked with selfLock
+        /// </summary>
         internal State state;
+
+        /// <summary>
+        /// Write only allowed on creation
+        /// </summary>
         internal AudioEffects audioEffects = AudioEffects.all;
 
         /// <summary>
@@ -108,7 +126,12 @@ namespace RaytracedAudio
         /// </summary>
         public void Stop(bool immediately = false)
         {
-            state = State.pendingDestroy;
+            if (clip.isValid() == false) return;
+            lock (selfLock)
+            {
+                state = State.pendingDestroy;
+            }
+
             clip.stop(immediately == false ? FMOD.Studio.STOP_MODE.ALLOWFADEOUT
                 : FMOD.Studio.STOP_MODE.IMMEDIATE);
         }
@@ -116,9 +139,10 @@ namespace RaytracedAudio
         /// <summary>
         /// Pauses or unpauses this source (Wont unpause if audio is paused globally)
         /// </summary>
-        public void SetPaused(bool toPasued)
+        public void SetPaused(bool pause)
         {
-            clip.setPaused(toPasued);
+            if (clip.isValid() == false) return;
+            clip.setPaused(pause);
         }
 
         #region Effects
@@ -126,15 +150,17 @@ namespace RaytracedAudio
         internal void TickSource(float deltaTime)
         {
             //Update state
-            if (state == State.pendingPlay && (traceInput == null || traceInput.resultIsReady == true)
-                && (zoneInput == null || zoneInput.resultIsReady == true))
+            lock (selfLock)
             {
-                clip.start();
-                state = State.playing;
-                Debug.Log("Played");
-            }
+                if (state == State.pendingPlay && (traceInput == null || traceInput.resultIsReady == true)
+                    && (zoneInput == null || zoneInput.resultIsReady == true))
+                {
+                    clip.start();
+                    state = State.playing;
+                }
 
-            if (state != State.playing) return;
+                if (state != State.playing) return;
+            }
 
             //Update 3D
             //Update pos
@@ -175,6 +201,38 @@ namespace RaytracedAudio
             //Apply 3D
             fmod3D.position = (AudioManager.camPos + (direction * distance)).ToFMODVector();
             clip.set3DAttributes(fmod3D);
+        }
+
+        internal void Dispose(bool destroying)
+        {
+            if (audioEffects.HasAny() == true)
+            {
+                FMOD.RESULT result = clip.getChannelGroup(out FMOD.ChannelGroup cg);
+                if (result != FMOD.RESULT.OK)
+                {
+                    Debug.LogError("Error getting ChannelGroup for " + this);
+                    return;
+                }
+
+                if (reverbFilter.hasHandle())
+                {
+                    cg.removeDSP(reverbFilter);
+                    reverbFilter.release();
+                }
+
+                if (lowpassFilter.hasHandle() == true)
+                {
+                    cg.removeDSP(lowpassFilter);
+                    lowpassFilter.release();
+                }
+            }
+
+            if (destroying == false && clip.isValid() == true)
+            {
+                clip.stop(FMOD.Studio.STOP_MODE.IMMEDIATE);
+                clip.release();
+                clip.clearHandle();
+            }
         }
 
         #endregion Effects
