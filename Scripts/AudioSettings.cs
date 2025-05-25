@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using STOP_MODE = FMOD.Studio.STOP_MODE;
 
-[CreateAssetMenu(menuName = "My Assets/Terrain Data")]
 public class AudioSettings : ScriptableObject
 {
     #region Singleton
@@ -42,6 +41,7 @@ public class AudioSettings : ScriptableObject
 
         foreach (BusConfig bus in buses)
         {
+            bus.bus.clearHandle();//To make sure their path is correct
             if (busPathToBus.TryAdd(bus.path, bus) == true || Application.isPlaying == false) continue;
             Debug.Log("Bus path " + bus.path + " exists more than ones!");
         }
@@ -52,7 +52,10 @@ public class AudioSettings : ScriptableObject
     private static BusConfig[] _buses = new BusConfig[0];
     private static readonly Dictionary<string, BusConfig> busPathToBus = new(6);
 
-    public static BusConfig GetBus(string busPath)
+    /// <summary>
+    /// Returns master bus if string is empty, null if path is invalid, otherwise returns bus at path.
+    /// </summary>
+    public static BusConfig GetBus(string busPath = "")
     {
         if (busPathToBus.TryGetValue(busPath, out BusConfig bus))
         {

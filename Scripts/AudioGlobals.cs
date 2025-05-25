@@ -5,18 +5,23 @@ using FMOD.Studio;
 
 namespace RaytracedAudio
 {
+    #region Bus Config
     [System.Serializable]
     public class BusConfig
     {
         [SerializeField] internal string path = string.Empty;
         [SerializeField] private bool isPausable = true;
 
-        private Bus bus = new(IntPtr.Zero);
+        internal Bus bus = new(IntPtr.Zero);
+        internal string GetFullPath()
+        {
+            return "bus:/" + path;
+        }
 
         internal void VerifyBus()
         {
             if (bus.hasHandle() == true) return;
-            bus = RuntimeManager.GetBus("bus:/" + path);
+            bus = RuntimeManager.GetBus(GetFullPath());
         }
 
         public void SetPaused(bool pause, bool forceSet = false)
@@ -40,6 +45,9 @@ namespace RaytracedAudio
             bus.setVolume(newVolume);
         }
     }
+    #endregion Bus Config
+
+    #region Audio Config
 
     [System.Serializable]
     public class AudioConfig
@@ -63,8 +71,6 @@ namespace RaytracedAudio
         [Tooltip("If true calling this.Play() if already playing will update the already playing clip properties instead of creating a new instance")]
         [SerializeField] internal bool singletone = false;
         [SerializeField] internal Transform attatchTo = null;
-        [SerializeField] internal bool timelineCallbacks = false;
-        [SerializeField] internal bool programmerSounds = false;
 
         /// <summary>
         /// Does not affect already playing clips, call AudioInstance.SetParent() to change the parent of already playing clips
@@ -91,6 +97,29 @@ namespace RaytracedAudio
             return AudioManager._instance.PlaySound(this, new(pos));
         }
     }
+
+    [CreateAssetMenu(menuName = "Audio/Audio Config Asset")]
+    public class AudioConfigAsset : ScriptableObject
+    {
+        [SerializeField] private AudioConfig audioConfig = new();
+
+        public AudioInstance Play()
+        {
+            return audioConfig.Play();
+        }
+
+        public AudioInstance Play(AudioProps props)
+        {
+            return audioConfig.Play(props);
+        }
+
+        public AudioInstance Play(Vector3 pos)
+        {
+            return audioConfig.Play(pos);
+        }
+    }
+
+    #endregion Audio Config
 
     public class AudioProps
     {
@@ -141,10 +170,12 @@ namespace RaytracedAudio
     public enum AudioEffects
     {
         all = 0,
-        bypassTracing = 10,
-        bypassZones = 11,
-        bypassAll = 20
+        noTracing = 10,
+        noZones = 11,
+        nothing = 20
     }
+
+    #region Audio Callbacks
 
     public enum AudioCallback
     {
@@ -179,19 +210,19 @@ namespace RaytracedAudio
     {
         public static bool HasTracing(this AudioEffects aEffects)
         {
-            return (aEffects == AudioEffects.all || aEffects == AudioEffects.bypassZones)
-                && (AudioSettings._globalAudioEffects == AudioEffects.all || AudioSettings._globalAudioEffects == AudioEffects.bypassZones);
+            return (aEffects == AudioEffects.all || aEffects == AudioEffects.noZones)
+                && (AudioSettings._globalAudioEffects == AudioEffects.all || AudioSettings._globalAudioEffects == AudioEffects.noZones);
         }
 
         public static bool HasZones(this AudioEffects aEffects)
         {
-            return (aEffects == AudioEffects.all || aEffects == AudioEffects.bypassTracing)
-                && (AudioSettings._globalAudioEffects == AudioEffects.all || AudioSettings._globalAudioEffects == AudioEffects.bypassTracing);
+            return (aEffects == AudioEffects.all || aEffects == AudioEffects.noTracing)
+                && (AudioSettings._globalAudioEffects == AudioEffects.all || AudioSettings._globalAudioEffects == AudioEffects.noTracing);
         }
 
         public static bool HasAny(this AudioEffects aEffects)
         {
-            return aEffects != AudioEffects.bypassAll && AudioSettings._globalAudioEffects != AudioEffects.bypassAll;
+            return aEffects != AudioEffects.nothing && AudioSettings._globalAudioEffects != AudioEffects.nothing;
         }
 
         internal static bool IsActive(this AudioInstance.State state)
@@ -199,4 +230,5 @@ namespace RaytracedAudio
             return (int)state < 25;
         }
     }
+    #endregion Audio Callbacks
 }

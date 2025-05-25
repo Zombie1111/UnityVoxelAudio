@@ -162,6 +162,7 @@ namespace RaytracedAudio
                 clip = RuntimeManager.CreateInstance(config.clip),
                 state = AudioInstance.State.pendingCreation,
                 audioEffects = config.audioEffects,
+                latestTimelineData = new(),
             };
 
             ai.traceInput = ai.audioEffects.HasTracing() == true ? AudioTracer.CreateTraceInput(ai) : null;
@@ -183,19 +184,9 @@ namespace RaytracedAudio
             ai.SetProps(props);
 
             //Callbacks
-            EVENT_CALLBACK_TYPE callMask = FMOD.Studio.EVENT_CALLBACK_TYPE.CREATED | EVENT_CALLBACK_TYPE.STOPPED | FMOD.Studio.EVENT_CALLBACK_TYPE.DESTROYED;
-
-            if (config.timelineCallbacks == true)
-            {
-                ai.latestTimelineData = new();
-                callMask |= EVENT_CALLBACK_TYPE.TIMELINE_MARKER | EVENT_CALLBACK_TYPE.TIMELINE_BEAT;
-            }
-            else ai.latestTimelineData = null;
-
-            if (config.programmerSounds == true)
-            {
-                callMask |= EVENT_CALLBACK_TYPE.CREATE_PROGRAMMER_SOUND | EVENT_CALLBACK_TYPE.DESTROY_PROGRAMMER_SOUND;
-            }
+            EVENT_CALLBACK_TYPE callMask = FMOD.Studio.EVENT_CALLBACK_TYPE.CREATED | EVENT_CALLBACK_TYPE.STOPPED | FMOD.Studio.EVENT_CALLBACK_TYPE.DESTROYED
+                | EVENT_CALLBACK_TYPE.TIMELINE_MARKER | EVENT_CALLBACK_TYPE.TIMELINE_BEAT//Wont affect performance since they are only recieved if the event has markers/beats
+                | EVENT_CALLBACK_TYPE.CREATE_PROGRAMMER_SOUND | EVENT_CALLBACK_TYPE.DESTROY_PROGRAMMER_SOUND;
 
             ai.clip.setCallback(ai.callback, callMask);
             return ai;
