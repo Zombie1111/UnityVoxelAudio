@@ -12,7 +12,7 @@ public class AudioSettings : ScriptableObject
     #region Singleton
 
     private static AudioSettings instance = null;
-    public static AudioSettings _instance
+    internal static AudioSettings _instance
     {
         get
         {
@@ -37,6 +37,7 @@ public class AudioSettings : ScriptableObject
     private void Setup()
     {
         _buses = buses.ToArray();
+        _minMaxDistanceFactor = minMaxDistanceFactor;
         busPathToBus.Clear();
 
         foreach (BusConfig bus in buses)
@@ -45,6 +46,11 @@ public class AudioSettings : ScriptableObject
             if (busPathToBus.TryAdd(bus.path, bus) == true || Application.isPlaying == false) continue;
             Debug.Log("Bus path " + bus.path + " exists more than ones!");
         }
+    }
+
+    internal void Dummy()//Just used to bus Setup() through _instance
+    {
+
     }
 
     [Tooltip("Should contain all your buses")]
@@ -68,6 +74,10 @@ public class AudioSettings : ScriptableObject
 
     [Tooltip("Disable effects globally for all sounds (Only affects sounds played after this was set)")]
     [SerializeField] private AudioEffects globalAudioEffects = AudioEffects.all;
+    [Tooltip("Global factor on how far away spatilized sounds can be heard")]
+    [SerializeField] private float minMaxDistanceFactor = 3.0f;
+    internal static float _minMaxDistanceFactor = 3.0f;
+
     public static AudioEffects _globalAudioEffects
     {
         get => _instance.globalAudioEffects;

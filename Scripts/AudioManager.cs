@@ -44,8 +44,8 @@ namespace RaytracedAudio
         #region Main
 
         private bool isInitilized = false;
-        private StudioListener listener = null;
-
+        internal static StudioListener listener = null;
+        
         /// <summary>
         /// Sets the listener to use, if null it will try to find one in the scene. Returns true if listener is valid
         /// </summary>
@@ -72,6 +72,7 @@ namespace RaytracedAudio
         {
             if (isInitilized == true) return;
 
+            AudioSettings._instance.Dummy();//Setup
             SetListener();
             isInitilized = true;
         }

@@ -63,7 +63,7 @@ namespace RaytracedAudio
 
         public delegate void Event_OnAudioCallback(AudioInstance ai, AudioCallback type, AudioTimelineData timelineData);
         /// <summary>
-        /// Not invoked from main thread, timelineData and beat/marker type is only valid/only occures if AudioConfig.timelineCallbacks == true!
+        /// Not invoked from main thread!
         /// (Please subscribe directly after calling PlaySound and always unsubscribe in this.OnAudioCallback when type == Stopped)
         /// </summary>
         public event Event_OnAudioCallback OnAudioCallback;
@@ -75,7 +75,7 @@ namespace RaytracedAudio
 
         public delegate ProgrammerSoundInput Event_OnProgrammerSound(AudioInstance ai, string programmerName, bool finished);
         /// <summary>
-        /// Only invoked if AudioConfig.programmerSounds == true, not invoked from main thread!
+        /// Not invoked from main thread!
         /// (Please subscribe directly after calling PlaySound and always unsubscribe in this.OnAudioCallback when type == Stopped)
         /// Should always return null if finished == true and never return null if its false
         /// </summary>
@@ -85,7 +85,7 @@ namespace RaytracedAudio
         {
             if (OnProgrammerSound == null)
             {
-                Debug.LogError("Nothing is subscribed to OnProgrammerSound, either set AudioConfig.programmerSounds false or subscribe!");
+                Debug.LogError("Nothing is subscribed to OnProgrammerSound, either remove programmerSounds in Fmod studio or subscribe!");
                 return null;
             }
 
@@ -175,6 +175,16 @@ namespace RaytracedAudio
             clip.setPaused(pause);
         }
 
+        public void SetVolume(float newVolume)
+        {
+            clip.setVolume(newVolume);
+        }
+
+        public void SetPitch(float newPitch)
+        {
+            clip.setPitch(newPitch);
+        }
+
         #region Effects
 
         internal void TickSource(float deltaTime)
@@ -230,7 +240,7 @@ namespace RaytracedAudio
             }
 
             //Apply 3D
-            fmod3D.position = (AudioManager.camPos + (direction * distance)).ToFMODVector();
+            fmod3D.position = (AudioManager.camPos + (direction * (distance / AudioSettings._minMaxDistanceFactor))).ToFMODVector();
             clip.set3DAttributes(fmod3D);
         }
 

@@ -71,6 +71,10 @@ namespace RaytracedAudio
         [Tooltip("If true calling this.Play() if already playing will update the already playing clip properties instead of creating a new instance")]
         [SerializeField] internal bool singletone = false;
         [SerializeField] internal Transform attatchTo = null;
+        /// <summary>
+        /// Use SetDefualtParent() to set
+        /// </summary>
+        public Transform _attatchTo => attatchTo;
 
         /// <summary>
         /// Does not affect already playing clips, call AudioInstance.SetParent() to change the parent of already playing clips
@@ -79,12 +83,12 @@ namespace RaytracedAudio
         {
             attatchTo = newParent;
         }
-        
+
         internal IntPtr lastPlayedEventHandle = IntPtr.Zero;
 
         public AudioInstance Play()
         {
-            return AudioManager._instance.PlaySound(this, attatchTo != null ? new(attatchTo.position) : new());
+            return AudioManager._instance.PlaySound(this, attatchTo != null ? new(attatchTo.position) : null);
         }
 
         public AudioInstance Play(AudioProps props)
@@ -92,30 +96,17 @@ namespace RaytracedAudio
             return AudioManager._instance.PlaySound(this, props);
         }
 
-        public AudioInstance Play(Vector3 pos)
+        public AudioInstance Play(AudioProps props, float volumeOverride = -1.0f, float pitchOverride = -1.0f)
         {
-            return AudioManager._instance.PlaySound(this, new(pos));
-        }
-    }
-
-    [CreateAssetMenu(menuName = "Audio/Audio Config Asset")]
-    public class AudioConfigAsset : ScriptableObject
-    {
-        [SerializeField] private AudioConfig audioConfig = new();
-
-        public AudioInstance Play()
-        {
-            return audioConfig.Play();
+            AudioInstance ai = AudioManager._instance.PlaySound(this, props);
+            if (volumeOverride >= 0.0f) ai.SetVolume(volumeOverride);
+            if (pitchOverride >= 0.0f) ai.SetPitch(pitchOverride);
+            return ai;
         }
 
-        public AudioInstance Play(AudioProps props)
+        public AudioConfig ShallowCopy()
         {
-            return audioConfig.Play(props);
-        }
-
-        public AudioInstance Play(Vector3 pos)
-        {
-            return audioConfig.Play(pos);
+            return (AudioConfig)this.MemberwiseClone();
         }
     }
 
@@ -145,10 +136,41 @@ namespace RaytracedAudio
             customProps = new CustomProp[1] { new(propName, propValue) };
         }
 
+        public AudioProps(string propName, float propValue)
+        {
+            customProps = new CustomProp[1] { new(propName, propValue) };
+        }
+
         public Vector3 pos = Vector3.zero;
         public CustomProp[] customProps = null;
+
+        public void Set(Vector3 pos)
+        {
+            this.pos = pos;
+        }
+
+        public void Set(string propName, float propValue)
+        {
+            if (customProps == null || customProps.Length != 1) customProps = new CustomProp[1] { new(propName, propValue) };
+            else
+            {
+                customProps[0].name = propName;
+                customProps[0].value = propValue;
+            }
+        }
+
+        public void ApplyPropsGlobal()
+        {
+            if (customProps == null) return;
+
+            foreach (CustomProp prop in customProps)
+            {
+                RuntimeManager.StudioSystem.setParameterByName(prop.name, prop.value);
+            }
+        }
     }
 
+    [System.Serializable]
     public class CustomProp
     {
         public CustomProp()
@@ -164,6 +186,11 @@ namespace RaytracedAudio
 
         public string name;
         public float value;
+
+        public void ApplyGlobal()
+        {
+            RuntimeManager.StudioSystem.setParameterByName(name, value);
+        }
     }
 
 

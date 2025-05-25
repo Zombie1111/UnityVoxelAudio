@@ -119,6 +119,52 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &593327494
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 593327496}
+  - component: {fileID: 593327495}
+  m_Layer: 0
+  m_Name: GameObject
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &593327495
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 593327494}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 874fcb0084026a042824ca3fc139eee6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  doPlaceTransform: 1
+  closestTo: {fileID: 0}
+--- !u!4 &593327496
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 593327494}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.03236045, y: -0.3098946, z: -0.09868919, w: 0.9450813}
+  m_LocalPosition: {x: 27.22, y: 0.22, z: 17.23076}
+  m_LocalScale: {x: 1.4472468, y: 1.7925, z: 11.195474}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: -7.027, y: -35.715, z: -9.657}
 --- !u!1 &936298601
 GameObject:
   m_ObjectHideFlags: 0
@@ -242,6 +288,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playOnAwake: 1
+  audioConfigAsset: {fileID: 0}
   audioConfig:
     clip:
       Guid:
@@ -253,8 +300,9 @@ MonoBehaviour:
     audioEffects: 0
     singletone: 0
     attatchTo: {fileID: 1121677709}
-    timelineCallbacks: 1
-    programmerSounds: 1
+  customProps: []
+  pitchOverride: -1
+  volumeOverride: -1
 --- !u!4 &1121677709
 Transform:
   m_ObjectHideFlags: 0
@@ -300,6 +348,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playOnAwake: 1
+  audioConfigAsset: {fileID: 0}
   audioConfig:
     clip:
       Guid:
@@ -311,8 +360,9 @@ MonoBehaviour:
     audioEffects: 0
     singletone: 0
     attatchTo: {fileID: 1147188416}
-    timelineCallbacks: 1
-    programmerSounds: 1
+  customProps: []
+  pitchOverride: -1
+  volumeOverride: -1
 --- !u!4 &1147188416
 Transform:
   m_ObjectHideFlags: 0
@@ -370,8 +420,6 @@ MonoBehaviour:
     audioEffects: 0
     singletone: 0
     attatchTo: {fileID: 0}
-    timelineCallbacks: 0
-    programmerSounds: 0
 --- !u!4 &1367513698
 Transform:
   m_ObjectHideFlags: 0
@@ -507,3 +555,4 @@ SceneRoots:
   - {fileID: 1147188416}
   - {fileID: 1121677709}
   - {fileID: 1367513698}
+  - {fileID: 593327496}
