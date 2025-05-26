@@ -9,17 +9,17 @@ namespace RaytracedAudio
     {
         [SerializeField] private AudioConfig audioConfig = new();
 
-        public AudioInstance Play()
+        public AudioInstanceRef Play()
         {
             return audioConfig.Play();
         }
 
-        public AudioInstance Play(AudioProps props)
+        public AudioInstanceRef Play(AudioProps props)
         {
             return audioConfig.Play(props);
         }
 
-        public AudioInstance Play(AudioProps props, float volumeOverride = -1.0f, float pitchOverride = -1.0f)
+        public AudioInstanceRef Play(AudioProps props, float volumeOverride = -1.0f, float pitchOverride = -1.0f)
         {
             return audioConfig.Play(props, volumeOverride, pitchOverride);
         }

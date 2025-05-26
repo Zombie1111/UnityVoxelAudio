@@ -19,23 +19,23 @@ namespace RaytracedAudio
         [SerializeField] private float pitchOverride = -1.0f;
         [SerializeField] private float volumeOverride = -1.0f;
         private readonly AudioProps defaultProps = new();
-        private readonly HashSet<AudioInstance> ais = new(1);
+        private readonly HashSet<AudioInstanceRef> ais = new(1);
 
 #if UNITY_EDITOR
         private void OnValidate()
         {
             if (audioConfig._attatchTo == null) audioConfig.SetDefualtParent(transform);
 
-            foreach (AudioInstance ai in ais)
+            foreach (AudioInstanceRef ai in ais)
             {
                 if (customProps.Length > 0)
                 {
-                    ai.SetCustomProps(customProps);
+                    ai._ai.SetCustomProps(customProps);
                     defaultProps.customProps = customProps;
                 }
 
-                if (volumeOverride >= 0.0f) ai.SetVolume(volumeOverride);
-                if (pitchOverride >= 0.0f) ai.SetPitch(pitchOverride);
+                if (volumeOverride >= 0.0f) ai._ai.SetVolume(volumeOverride);
+                if (pitchOverride >= 0.0f) ai._ai.SetPitch(pitchOverride);
             }
         }
 #endif
@@ -64,7 +64,7 @@ namespace RaytracedAudio
             Stop();
         }
 
-        public AudioInstance Play(AudioProps props = null)
+        public AudioInstanceRef Play(AudioProps props = null)
         {
             if (props == null)
             {
@@ -72,18 +72,18 @@ namespace RaytracedAudio
                 props = defaultProps;
             }
 
-            AudioInstance ai = audioConfig.Play(props, volumeOverride, pitchOverride);
+            AudioInstanceRef ai = audioConfig.Play(props, volumeOverride, pitchOverride);
 
-            if (isPaused == true) ai.SetPaused(true);
+            if (isPaused == true) ai._ai.SetPaused(true);
             ais.Add(ai);
             return ai;
         }
 
         public void Stop()
         {
-            foreach (AudioInstance ai in ais)
+            foreach (AudioInstanceRef ai in ais)
             {
-                ai.Stop();
+                ai._ai.Stop();
             }
 
             ais.Clear();
@@ -96,9 +96,9 @@ namespace RaytracedAudio
             if (pause == isPaused) return;
             isPaused = pause;
 
-            foreach (AudioInstance ai in ais)
+            foreach (AudioInstanceRef ai in ais)
             {
-                ai.SetPaused(pause);
+                ai._ai.SetPaused(pause);
             }
         }
     }

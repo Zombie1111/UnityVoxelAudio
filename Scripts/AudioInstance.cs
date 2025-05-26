@@ -3,11 +3,63 @@ using System.Collections.Generic;
 using UnityEngine;
 using FMODUnity;
 using FMOD.Studio;
+using Unity.Android.Types;
 
 namespace RaytracedAudio
 {
+    public class AudioInstanceRef//We cant use AudioInstance directly because it may be reused so the user accidentally sets another eventInstance
+    {
+        private static readonly AudioInstance dummyAI = new();
+
+        internal AudioInstanceRef(AudioInstance ai)//Prevents external creation
+        {
+            this.ai = ai;
+            id = ai.id;
+        }
+
+        private readonly AudioInstance ai;
+        private readonly int id;
+
+        /// <summary>
+        /// Returns the AudioInstance, returns a dummy AudioInstance if its invalid
+        /// </summary>
+        public AudioInstance _ai
+        {
+            get
+            {
+                if (id != ai.id) return dummyAI;
+                return ai;
+            }
+        }
+
+        /// <summary>
+        /// Returns the AudioInstance if it is valid, otherwise returns null.
+        /// </summary>
+        public AudioInstance TryGetAudioInstance()
+        {
+            if (id != ai.id) return null;
+            return ai;
+        }
+
+        public bool IsValid()
+        {
+            return id == ai.id;
+        }
+    }
+
     public class AudioInstance
     {
+        internal static int nextId = 0;
+
+        internal AudioInstance()//Prevents external creation
+        {
+
+        }
+
+        /// <summary>
+        /// Negative if inactive
+        /// </summary>
+        internal volatile int id = -1;
         internal EventInstance clip;
         internal EVENT_CALLBACK callback;
         internal AudioTracer.TraceInput traceInput = null;

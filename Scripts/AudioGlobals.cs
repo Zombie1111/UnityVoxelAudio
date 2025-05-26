@@ -84,23 +84,23 @@ namespace RaytracedAudio
             attatchTo = newParent;
         }
 
-        internal IntPtr lastPlayedEventHandle = IntPtr.Zero;
+        internal int lastPlayedId = -1;
 
-        public AudioInstance Play()
+        public AudioInstanceRef Play()
         {
             return AudioManager._instance.PlaySound(this, attatchTo != null ? new(attatchTo.position) : null);
         }
 
-        public AudioInstance Play(AudioProps props)
+        public AudioInstanceRef Play(AudioProps props)
         {
             return AudioManager._instance.PlaySound(this, props);
         }
 
-        public AudioInstance Play(AudioProps props, float volumeOverride = -1.0f, float pitchOverride = -1.0f)
+        public AudioInstanceRef Play(AudioProps props, float volumeOverride = -1.0f, float pitchOverride = -1.0f)
         {
-            AudioInstance ai = AudioManager._instance.PlaySound(this, props);
-            if (volumeOverride >= 0.0f) ai.SetVolume(volumeOverride);
-            if (pitchOverride >= 0.0f) ai.SetPitch(pitchOverride);
+            AudioInstanceRef ai = AudioManager._instance.PlaySound(this, props);
+            if (volumeOverride >= 0.0f) ai._ai.SetVolume(volumeOverride);
+            if (pitchOverride >= 0.0f) ai._ai.SetPitch(pitchOverride);
             return ai;
         }
 
@@ -144,22 +144,41 @@ namespace RaytracedAudio
         public Vector3 pos = Vector3.zero;
         public CustomProp[] customProps = null;
 
-        public void Set(Vector3 pos)
+        /// <summary>
+        /// Sets the value of the a prop with the given name, adds new prop if name does not exist
+        /// </summary>
+        public void SetProp(string propName, float propValue)
         {
-            this.pos = pos;
-        }
-
-        public void Set(string propName, float propValue)
-        {
-            if (customProps == null || customProps.Length != 1) customProps = new CustomProp[1] { new(propName, propValue) };
+            if (customProps == null || customProps.Length == 0) customProps = new CustomProp[1] { new(propName, propValue) };
             else
             {
-                customProps[0].name = propName;
-                customProps[0].value = propValue;
+                foreach (CustomProp prop in customProps)
+                {
+                    if (prop.name != propName) continue;
+                    prop.value = propValue;
+                    return;
+                }
+
+                CustomProp[] newProps = new CustomProp[customProps.Length + 1];
+                customProps.CopyTo(newProps, 0);
+                newProps[^1] = new CustomProp(propName, propValue);
+                customProps = newProps;
             }
         }
 
-        public void ApplyPropsGlobal()
+        /// <summary>
+        /// Sets the value at the given index if its within array bounds
+        /// </summary>
+        public void SetProp(int index, float propValue)
+        {
+            if (customProps == null || customProps.Length <= index) return;
+            customProps[index].value = propValue;
+        }
+
+        /// <summary>
+        /// Sets FMod global parameters from the customProps array
+        /// </summary>
+        public void ApplyToGlobal()
         {
             if (customProps == null) return;
 
@@ -167,6 +186,17 @@ namespace RaytracedAudio
             {
                 RuntimeManager.StudioSystem.setParameterByName(prop.name, prop.value);
             }
+        }
+
+        /// <summary>
+        /// Sets the props of the given AudioInstance if its valid
+        /// </summary>
+        public void ApplyTo(AudioInstance ai, bool customPropsOnly = false)
+        {
+            if (ai == null) return;
+
+            if (customPropsOnly == false) ai.SetProps(this);
+            else if (customProps != null) ai.SetCustomProps(customProps);
         }
     }
 
