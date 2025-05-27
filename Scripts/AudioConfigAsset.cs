@@ -8,6 +8,26 @@ namespace RaytracedAudio
     public class AudioConfigAsset : ScriptableObject
     {
         [SerializeField] private AudioConfig audioConfig = new();
+        [SerializeField] private CustomProp[] defaultCustomProps = new CustomProp[0];
+
+        public bool HasDefaultCustomProps()
+        {
+            return defaultCustomProps != null && defaultCustomProps.Length > 0;
+        }
+
+        public void UpdateDefaultCustomProps(ref CustomProp[] props)
+        {
+            if (HasDefaultCustomProps() == false) return;
+
+            props = props.GetWithLenght(defaultCustomProps.Length);
+            for (int i = 0; i < props.Length; i++)
+            {
+                if (props[i] == null) props[i] = new();
+                if (props[i].name == null || (props[i].name.Length == 0 && props[i].value == 0.0f))
+                    props[i].value = defaultCustomProps[i].value;//Set default value if new element
+                props[i].name = defaultCustomProps[i].name;
+            }
+        }
 
         public AudioInstanceRef Play()
         {
@@ -21,7 +41,7 @@ namespace RaytracedAudio
 
         public AudioInstanceRef Play(AudioProps props)
         {
-           return audioConfig.Play(props);
+            return audioConfig.Play(props);
         }
 
         public AudioInstanceRef Play(AudioProps props, float volumeOverride = -1.0f, float pitchOverride = -1.0f)

@@ -24,17 +24,23 @@ namespace RaytracedAudio
 #if UNITY_EDITOR
         private void OnValidate()
         {
+            if (Application.isPlaying == false && audioConfigAsset != null)
+                audioConfigAsset.UpdateDefaultCustomProps(ref customProps);
+
             foreach (AudioInstanceRef ai in ais)
             {
-                if (customProps.Length > 0)
-                {
-                    ai._ai.SetCustomProps(customProps);
-                    defaultProps.customProps = customProps;
-                }
-
+                if (customProps.Length > 0) ai._ai.SetCustomProps(customProps);
                 if (volumeOverride >= 0.0f) ai._ai.SetVolume(volumeOverride);
                 if (pitchOverride >= 0.0f) ai._ai.SetPitch(pitchOverride);
             }
+
+            defaultProps.customProps = customProps;
+        }
+
+        private void OnDrawGizmosSelected()
+        {
+            if (Application.isPlaying == false && audioConfigAsset != null)
+                audioConfigAsset.UpdateDefaultCustomProps(ref customProps);
         }
 #endif
 
@@ -143,6 +149,13 @@ namespace RaytracedAudio
             EditorGUILayout.PropertyField(customProps, true);
             EditorGUILayout.PropertyField(pitchOverride);
             EditorGUILayout.PropertyField(volumeOverride);
+
+            AudioConfigAsset aca = (AudioConfigAsset)audioConfigAsset.objectReferenceValue;
+            if (aca != null && aca.HasDefaultCustomProps() == true)
+            {
+                EditorGUILayout.Space();
+                EditorGUILayout.HelpBox("Custom Props names are controlled by audioConfigAsset", MessageType.Info);
+            }
 
             serializedObject.ApplyModifiedProperties();
         }

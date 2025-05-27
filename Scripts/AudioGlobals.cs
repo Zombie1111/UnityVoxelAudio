@@ -338,9 +338,14 @@ namespace RaytracedAudio
             return aEffects != AudioEffects.nothing && AudioSettings._globalAudioEffects != AudioEffects.nothing;
         }
 
-        internal static bool IsActive(this AudioInstance.State state)
+        internal static T[] GetWithLenght<T>(this T[] array, int newLength)
         {
-            return (int)state < 25;
+            if (newLength < 0) newLength = 0;
+            if (newLength == array.Length) return array;
+
+            T[] newArray = new T[newLength];
+            Array.Copy(array, newArray, Math.Min(array.Length, newLength));
+            return newArray;
         }
     }
     #endregion Audio Callbacks
