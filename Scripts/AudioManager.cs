@@ -157,7 +157,6 @@ namespace RaytracedAudio
 
                 if (playing == true)
                 {
-                    ai.SetParent(config.attatchTo);
                     ai.SetProps(props);
                     return new(ai);
                 }
@@ -196,7 +195,6 @@ namespace RaytracedAudio
             //Configure
             if (props != null) ai.fmod3D.position = props.pos.ToFMODVector();
             ai.clip.set3DAttributes(ai.fmod3D);//Must be called to not get warning
-            ai.SetParent(config.attatchTo);
             ai.SetProps(props);
 
             //Callbacks

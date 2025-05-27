@@ -157,6 +157,7 @@ namespace RaytracedAudio
         {
             if (newProps == null) return;
 
+            SetParent(newProps.attatchTo);
             SetPosition(newProps.pos);
             if (newProps.customProps != null) SetCustomProps(newProps.customProps);
         }
@@ -200,11 +201,24 @@ namespace RaytracedAudio
         }
 
         /// <summary>
-        /// Returns true if the source is currently playing any clip
+        /// Returns true if the source is currently playing an event (True even if paused)
         /// </summary>
         public bool IsPlaying()
         {
-            return true;//Sources are destroyed when not playing, so always true
+            return state == State.playing;
+        }
+
+        /// <summary>
+        /// Returns true if the source is or will be playing an event (True even if paused)
+        /// </summary>
+        public bool IsActive()
+        {
+            return id >= 0;
+        }
+
+        public bool IsPaused()
+        {
+            return clip.getPaused(out bool paused) != FMOD.RESULT.OK && paused == true;
         }
 
         /// <summary>

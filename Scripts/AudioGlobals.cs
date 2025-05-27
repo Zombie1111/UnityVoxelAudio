@@ -57,10 +57,9 @@ namespace RaytracedAudio
 
         }
 
-        public AudioConfig(string eventPath, Transform attatchTo = null, AudioEffects audioEffects = AudioEffects.all, bool singletone = false)
+        public AudioConfig(string eventPath, AudioEffects audioEffects = AudioEffects.all, bool singletone = false)
         {
             clip = EventReference.Find(eventPath);
-            this.attatchTo = attatchTo;
             this.audioEffects = audioEffects;
             this.singletone = singletone;
         }
@@ -70,35 +69,58 @@ namespace RaytracedAudio
 
         [Tooltip("If true calling this.Play() if already playing will update the already playing clip properties instead of creating a new instance")]
         [SerializeField] internal bool singletone = false;
-        [SerializeField] internal Transform attatchTo = null;
-        /// <summary>
-        /// Use SetDefualtParent() to set
-        /// </summary>
-        public Transform _attatchTo => attatchTo;
-
-        /// <summary>
-        /// Does not affect already playing clips, call AudioInstance.SetParent() to change the parent of already playing clips
-        /// </summary>
-        public void SetDefualtParent(Transform newParent)
-        {
-            attatchTo = newParent;
-        }
 
         internal int lastPlayedId = -1;
 
         public AudioInstanceRef Play()
         {
-            return AudioManager._instance.PlaySound(this, attatchTo != null ? new(attatchTo.position) : null);
+            return AudioManager._instance.PlaySound(this, null);
+        }
+
+        public AudioInstanceRef Play(float volumeOverride, float pitchOverride = -1.0f)
+        {
+            AudioInstanceRef ai = AudioManager._instance.PlaySound(this, null);
+            if (volumeOverride >= 0.0f) ai._ai.SetVolume(volumeOverride);
+            if (pitchOverride >= 0.0f) ai._ai.SetPitch(pitchOverride);
+            return ai;
         }
 
         public AudioInstanceRef Play(AudioProps props)
         {
+            if (props.attatchTo != null && props.pos.x == 0.0f && props.pos.y == 0.0f && props.pos.z == 0.0f)
+            {
+                props = props.ShallowCopy();
+                props.pos = props.attatchTo.position;
+            }
+
             return AudioManager._instance.PlaySound(this, props);
         }
 
         public AudioInstanceRef Play(AudioProps props, float volumeOverride = -1.0f, float pitchOverride = -1.0f)
         {
+            if (props.attatchTo != null && props.pos.x == 0.0f && props.pos.y == 0.0f && props.pos.z == 0.0f)
+            {
+                props = props.ShallowCopy();
+                props.pos = props.attatchTo.position;
+            }
+
             AudioInstanceRef ai = AudioManager._instance.PlaySound(this, props);
+            if (volumeOverride >= 0.0f) ai._ai.SetVolume(volumeOverride);
+            if (pitchOverride >= 0.0f) ai._ai.SetPitch(pitchOverride);
+            return ai;
+        }
+
+        public AudioInstanceRef Play(Transform attatchTo, float volumeOverride = -1.0f, float pitchOverride = -1.0f)
+        {
+            AudioInstanceRef ai = AudioManager._instance.PlaySound(this, attatchTo != null ? new(attatchTo.position) : null);
+            if (volumeOverride >= 0.0f) ai._ai.SetVolume(volumeOverride);
+            if (pitchOverride >= 0.0f) ai._ai.SetPitch(pitchOverride);
+            return ai;
+        }
+
+        public AudioInstanceRef Play(Vector3 pos, float volumeOverride = -1.0f, float pitchOverride = -1.0f)
+        {
+            AudioInstanceRef ai = AudioManager._instance.PlaySound(this, new(pos));
             if (volumeOverride >= 0.0f) ai._ai.SetVolume(volumeOverride);
             if (pitchOverride >= 0.0f) ai._ai.SetPitch(pitchOverride);
             return ai;
@@ -124,24 +146,40 @@ namespace RaytracedAudio
             this.pos = pos;
         }
 
-        public AudioProps(Vector3 pos, CustomProp[] customProps)
+        public AudioProps(Vector3 pos, Transform attatchTo)
+        {
+            this.pos = pos;
+            this.attatchTo = attatchTo;
+        }
+
+        public AudioProps(Vector3 pos, CustomProp[] customProps, Transform attatchTo = null)
         {
             this.pos = pos;
             this.customProps = customProps;
+            this.attatchTo = attatchTo;
         }
 
-        public AudioProps(Vector3 pos, string propName, float propValue)
+        public AudioProps(Vector3 pos, string propName, float propValue, Transform attatchTo = null)
         {
             this.pos = pos;
+            this.attatchTo = attatchTo;
             customProps = new CustomProp[1] { new(propName, propValue) };
         }
 
-        public AudioProps(string propName, float propValue)
+        public AudioProps(string propName, float propValue, Transform attatchTo = null)
         {
             customProps = new CustomProp[1] { new(propName, propValue) };
+            this.attatchTo = attatchTo;
+        }
+
+        public AudioProps(string propName1, float propValue1, string propName2, float propValue2, Transform attatchTo = null)
+        {
+            customProps = new CustomProp[2] { new(propName1, propValue1), new(propName2, propValue2) };
+            this.attatchTo = attatchTo;
         }
 
         public Vector3 pos = Vector3.zero;
+        public Transform attatchTo = null;
         public CustomProp[] customProps = null;
 
         /// <summary>
@@ -197,6 +235,24 @@ namespace RaytracedAudio
 
             if (customPropsOnly == false) ai.SetProps(this);
             else if (customProps != null) ai.SetCustomProps(customProps);
+        }
+
+        /// <summary>
+        /// Sets the props of the given AudioInstance if its valid
+        /// </summary>
+        public void ApplyTo(AudioInstanceRef air, bool customPropsOnly = false)
+        {
+            if (air == null) return;
+            AudioInstance ai = air.TryGetAudioInstance();
+            if (ai == null) return;
+
+            if (customPropsOnly == false) ai.SetProps(this);
+            else if (customProps != null) ai.SetCustomProps(customProps);
+        }
+
+        public AudioProps ShallowCopy()
+        {
+            return (AudioProps)this.MemberwiseClone();
         }
     }
 

@@ -24,8 +24,6 @@ namespace RaytracedAudio
 #if UNITY_EDITOR
         private void OnValidate()
         {
-            if (audioConfig._attatchTo == null) audioConfig.SetDefualtParent(transform);
-
             foreach (AudioInstanceRef ai in ais)
             {
                 if (customProps.Length > 0)
@@ -43,7 +41,7 @@ namespace RaytracedAudio
         private void Awake()
         {
             if (audioConfigAsset != null) audioConfig = audioConfigAsset.GetAudioConfig();
-            if (audioConfig._attatchTo == null) audioConfig.SetDefualtParent(transform);
+            defaultProps.attatchTo = transform;
             if (customProps.Length > 0) defaultProps.customProps = customProps;
             if (playOnAwake == false) return;
             Play();
@@ -71,6 +69,7 @@ namespace RaytracedAudio
                 defaultProps.pos = transform.position;
                 props = defaultProps;
             }
+            else if (props.attatchTo == null) props.attatchTo = transform;
 
             AudioInstanceRef ai = audioConfig.Play(props, volumeOverride, pitchOverride);
 

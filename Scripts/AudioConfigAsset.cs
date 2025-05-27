@@ -14,14 +14,24 @@ namespace RaytracedAudio
             return audioConfig.Play();
         }
 
+        public AudioInstanceRef Play(float volumeOverride, float pitchOverride = -1.0f)
+        {
+            return audioConfig.Play(volumeOverride, pitchOverride);
+        }
+
         public AudioInstanceRef Play(AudioProps props)
         {
-            return audioConfig.Play(props);
+           return audioConfig.Play(props);
         }
 
         public AudioInstanceRef Play(AudioProps props, float volumeOverride = -1.0f, float pitchOverride = -1.0f)
         {
             return audioConfig.Play(props, volumeOverride, pitchOverride);
+        }
+
+        public AudioInstanceRef Play(Transform attatchTo, float volumeOverride = -1.0f, float pitchOverride = -1.0f)
+        {
+            return audioConfig.Play(attatchTo, volumeOverride, pitchOverride);
         }
 
         /// <summary>
