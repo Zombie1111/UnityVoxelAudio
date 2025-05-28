@@ -11,7 +11,7 @@ namespace RaytracedAudio_demo
         //Updating 240 sounds properties takes 0.4ms, too good to be true?
         [SerializeField] private float delay = 0.1f;
         [SerializeField] private int soundCount = 3;
-        [SerializeField] private AudioConfig aaudio = new();
+        [SerializeField] private AudioReference aaudio = new();
         private float timer = 0.0f;
         private readonly AudioProps props = new();
 
@@ -27,7 +27,8 @@ namespace RaytracedAudio_demo
 
                 for (int i = 0; i < soundCount; i++)
                 {
-                    aaudio.Play(props);
+                    var a = aaudio.Play(props);
+                    //aaudio.Stop(a);
                 }
             }
         }

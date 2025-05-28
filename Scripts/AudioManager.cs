@@ -3,8 +3,9 @@ using FMODUnity;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using System.Threading;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+
 
 namespace RaytracedAudio
 {
@@ -72,9 +73,16 @@ namespace RaytracedAudio
         {
             if (isInitilized == true) return;
 
-            AudioSettings._instance.Dummy();//Setup
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            AudioSettings._instance.Init();//Setup
             SetListener();
             isInitilized = true;
+        }
+
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            if (mode == LoadSceneMode.Additive) return;
+            AudioSettings.StopAllAudio();
         }
 
         private void OnDestroy()
@@ -87,7 +95,8 @@ namespace RaytracedAudio
             if (isInitilized == false) return;
             isInitilized = false;
 
-            AudioSettings.StopAudio(true, true);
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            AudioSettings.StopAllAudio(true, true);
         }
 
         /// <summary>
@@ -105,7 +114,7 @@ namespace RaytracedAudio
             //Tick sources
             float deltaTime = Time.deltaTime;
 
-            foreach (AudioInstance ai in GetSafeAllAIs())
+            foreach (AudioInstance ai in GetAllAIsSafe())
             {
                 ai.TickSource(deltaTime);
             }
@@ -121,17 +130,18 @@ namespace RaytracedAudio
 
         #region Play/Stop sounds
 
-        internal static readonly object aiContainersLock = new();
+        internal readonly object aiContainersLock = new();
+
         /// <summary>
-        /// Must be locked with aiContainersLock when adding/removing
+        /// Must be locked with aiContainersLock
         /// </summary>
-        private readonly Dictionary<int, AudioInstance> idToAI = new(32);
         private readonly Dictionary<IntPtr, AudioInstance> handleToAI = new(32);
         /// <summary>
-        /// Must be locked with aiContainersLock when adding/removing
+        /// Must be locked with aiContainersLock
         /// </summary>
         private readonly List<AudioInstance> allAIs = new(32);
-        private AudioInstance[] GetSafeAllAIs()
+
+        internal AudioInstance[] GetAllAIsSafe()
         {
             AudioInstance[] ais;
             lock (aiContainersLock)
@@ -142,33 +152,17 @@ namespace RaytracedAudio
             return ais;
         }
 
-        public AudioInstanceRef PlaySound(AudioConfig config, AudioProps props = null)
+        public AudioInstanceWrap PlaySound(AudioReference aRef, AudioProps aProps = null)
         {
-            //Singletone
-            AudioInstance ai;
-
-            if (config.singletone == true)
-            {
-                bool playing;
-                lock (aiContainersLock)
-                {
-                    playing = idToAI.TryGetValue(config.lastPlayedId, out ai);
-                }
-
-                if (playing == true)
-                {
-                    ai.SetProps(props);
-                    return new(ai);
-                }
-            }
-
             //Get audio instance
-            ai = new AudioInstance
+            AudioConfigAsset aConfig = aRef.GetAudioConfig();
+            AudioInstance ai = new()
             {
                 callback = new EVENT_CALLBACK(EventCallback),
-                clip = RuntimeManager.CreateInstance(config.clip),
+                clip = RuntimeManager.CreateInstance(aRef.clip),
                 state = AudioInstance.State.pendingCreation,
-                audioEffects = config.audioEffects,
+                audioEffects = aConfig.audioEffects,
+                isPersistent = aConfig.persistent,
                 latestTimelineData = new(),
             };
 
@@ -184,18 +178,16 @@ namespace RaytracedAudio
             //Register audio instance
             ai.id = AudioInstance.nextId;
             AudioInstance.nextId++;
-            config.lastPlayedId = ai.id;
 
             lock (aiContainersLock)
             {
-                idToAI.Add(ai.id, ai);
                 allAIs.Add(ai);//Its worth adding/removing everytime to avoid unnecessary ticking
             }
             
             //Configure
-            if (props != null) ai.fmod3D.position = props.pos.ToFMODVector();
+            if (aProps != null) ai.fmod3D.position = aProps.pos.ToFMODVector();
             ai.clip.set3DAttributes(ai.fmod3D);//Must be called to not get warning
-            ai.SetProps(props);
+            ai.SetProps(aProps);
 
             //Callbacks
             EVENT_CALLBACK_TYPE callMask = EVENT_CALLBACK_TYPE.CREATED | EVENT_CALLBACK_TYPE.STOPPED | EVENT_CALLBACK_TYPE.DESTROYED
@@ -207,7 +199,7 @@ namespace RaytracedAudio
         }
 
         [AOT.MonoPInvokeCallback(typeof(FMOD.Studio.EVENT_CALLBACK))]
-        private static FMOD.RESULT EventCallback(FMOD.Studio.EVENT_CALLBACK_TYPE type, IntPtr instance, IntPtr parameterPtr)
+        internal static FMOD.RESULT EventCallback(FMOD.Studio.EVENT_CALLBACK_TYPE type, IntPtr instance, IntPtr parameterPtr)
         {
             //Not invoked from main thread
             //FMod freezes if any exception is thrown from EvenCallback
@@ -215,7 +207,7 @@ namespace RaytracedAudio
 
             FMOD.RESULT result = FMOD.RESULT.OK;
             AudioInstance ai;
-            lock (aiContainersLock)
+            lock (am.aiContainersLock)
             {
                 ai = am.handleToAI[instance];
             }
@@ -289,6 +281,10 @@ namespace RaytracedAudio
 
             void OnCreated()
             {
+                if (ai.clip.isValid() == false) return;
+                if (ai.GetStateSafe() == AudioInstance.State.pendingCreation)
+                    ai.SetStateSafe(AudioInstance.State.pendingPlay);//We always wanna setup filter stuff but not set state if stopped manually before OnCreated()
+                
                 if (ai.audioEffects.HasAny() == true)
                 {
                     //https://bobthenameless.github.io/fmod-studio-docs/generated/FMOD_DSP_SFXREVERB.html
@@ -356,56 +352,41 @@ namespace RaytracedAudio
                         cg.addDSP(0, ai.reverbFilter);
                     }
                 }
-
-                lock (ai.selfLock)
-                {
-                    ai.state = AudioInstance.State.pendingPlay;
-                }
             }
 
-            void OnInactivate()
+            void InActivate()
             {
-                if (ai.id < 0) return;
-                
-                lock (aiContainersLock)
+                lock (am.aiContainersLock)
                 {
-                    am.idToAI.Remove(ai.id);
                     am.allAIs.Remove(ai);
                 }
-                
+
+                ai.InvokeAudioCallback(AudioCallback.stopped);
                 ai.id = -1;//I may be reading this from other thread, however I know this is the only thread writing to it.
                            //Even if race occures it SHOULD not be able to cause any problems. I would prefer not to require locking with ai.selfLock since its read a alot
             }
 
-            void OnStopped()//Does not get called on exit playmode
+            void OnStopped()//Does not get called on exit playmode, called manually so may be called before OnCreated
             {
-                OnInactivate();
-                ai.InvokeAudioCallback(AudioCallback.stopped);
-                ai.Dispose(false);
+                if (ai.id <= 0) return;
 
-                lock (ai.selfLock)
-                {
-                    ai.state = AudioInstance.State.pendingDestroy;
-                }
+                InActivate();
+                ai.Dispose(false);
+                ai.SetStateSafe(AudioInstance.State.inActive);
             }
 
             void OnDestroy()
             {
-                OnInactivate();
-                AudioTracer.RemoveTraceInput(ai.traceInput);
+                if (ai.id > 0) InActivate();
+                if (ai.GetStateSafe() == AudioInstance.State.destroyed) return;
 
-                lock (ai.selfLock)
-                {
-                    if (ai.state != AudioInstance.State.pendingDestroy)
-                    {
-                        ai.InvokeAudioCallback(AudioCallback.stopped);
-                        ai.Dispose(true);
-                    }
+                AudioTracer.DestroyTraceInput(ai.traceInput);
+                AudioZones.DestroyZoneInput(ai.zoneInput);
 
-                    ai.state = AudioInstance.State.destroyed;
-                }
+                ai.SetStateSafe(AudioInstance.State.destroyed);//Must be called first to avoid potential stack overflow
+                ai.Dispose(true);
 
-                lock (aiContainersLock)
+                lock (am.aiContainersLock)
                 {
                     am.handleToAI.Remove(instance);
                 }

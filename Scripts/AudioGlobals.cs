@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using FMODUnity;
 using FMOD.Studio;
+using FMOD;
 
 namespace RaytracedAudio
 {
@@ -10,39 +11,40 @@ namespace RaytracedAudio
     public class BusConfig
     {
         [SerializeField] internal string path = string.Empty;
-        [SerializeField] private bool isPausable = true;
-
+        [SerializeField] internal bool isPausable = true;
         internal Bus bus = new(IntPtr.Zero);
+
         internal string GetFullPath()
         {
             return "bus:/" + path;
         }
 
-        internal void VerifyBus()
+        public Bus GetFModBus()
         {
-            if (bus.hasHandle() == true) return;
+            if (bus.isValid() == true) return bus;
             bus = RuntimeManager.GetBus(GetFullPath());
+            return bus;
         }
 
-        public void SetPaused(bool pause, bool forceSet = false)
+        /// <summary>
+        /// Pauses or unpauses all audio in this bus
+        /// </summary>
+        public void SetPaused(bool pause)
         {
-            if (isPausable == false && forceSet == false) return;
-
-            VerifyBus();
-            bus.setPaused(pause);
+            GetFModBus().setPaused(pause);
         }
 
-        public void StopAll(FMOD.Studio.STOP_MODE mode = FMOD.Studio.STOP_MODE.ALLOWFADEOUT, bool forceStop = false)
+        /// <summary>
+        /// Tries to stop all audio in this bus, may not stop events that was recently started. Use AudioSettings.StopAll() or stop individual AudioInstances instead
+        /// </summary>
+        public void TryStopAll(FMOD.Studio.STOP_MODE mode = FMOD.Studio.STOP_MODE.ALLOWFADEOUT)
         {
-            if (isPausable == false && forceStop == false) return;
-
-            VerifyBus();
-            bus.stopAllEvents(mode);
+            GetFModBus().stopAllEvents(mode);
         }
 
         public void SetVolume(float newVolume)
         {
-            bus.setVolume(newVolume);
+            GetFModBus().setVolume(newVolume);
         }
     }
     #endregion Bus Config
@@ -50,44 +52,44 @@ namespace RaytracedAudio
     #region Audio Config
 
     [System.Serializable]
-    public class AudioConfig
+    public class AudioReference
     {
-        public AudioConfig()
+        public AudioReference()
         {
 
         }
 
-        public AudioConfig(string eventPath, AudioEffects audioEffects = AudioEffects.all, bool singletone = false)
+        public AudioReference(string eventPath, AudioConfigAsset audioConfigOverride = null)
         {
             clip = EventReference.Find(eventPath);
-            this.audioEffects = audioEffects;
-            this.singletone = singletone;
+            this.audioConfigOverride = audioConfigOverride;
+        }
+        
+        [SerializeField] internal EventReference clip;
+        [SerializeField] private AudioConfigAsset audioConfigOverride = null;
+
+        internal AudioConfigAsset GetAudioConfig()
+        {
+            if (audioConfigOverride != null) return audioConfigOverride;
+            return AudioSettings._defaultAudioConfigAsset;
         }
 
-        [SerializeField] internal EventReference clip;
-        [SerializeField] internal AudioEffects audioEffects = AudioEffects.all;
-
-        [Tooltip("If true calling this.Play() if already playing will update the already playing clip properties instead of creating a new instance")]
-        [SerializeField] internal bool singletone = false;
-
-        internal int lastPlayedId = -1;
-
-        public AudioInstanceRef Play()
+        public AudioInstanceWrap Play()
         {
             return AudioManager._instance.PlaySound(this, null);
         }
 
-        public AudioInstanceRef Play(float volumeOverride, float pitchOverride = -1.0f)
+        public AudioInstanceWrap Play(float volumeOverride, float pitchOverride = -1.0f)
         {
-            AudioInstanceRef ai = AudioManager._instance.PlaySound(this, null);
-            if (volumeOverride >= 0.0f) ai._ai.SetVolume(volumeOverride);
-            if (pitchOverride >= 0.0f) ai._ai.SetPitch(pitchOverride);
+            AudioInstanceWrap ai = AudioManager._instance.PlaySound(this, null);
+            if (volumeOverride >= 0.0f) ai.ai.SetVolume(volumeOverride);
+            if (pitchOverride >= 0.0f) ai.ai.SetPitch(pitchOverride);
             return ai;
         }
 
-        public AudioInstanceRef Play(AudioProps props)
+        public AudioInstanceWrap Play(AudioProps props)
         {
-            if (props.attatchTo != null && props.pos.x == 0.0f && props.pos.y == 0.0f && props.pos.z == 0.0f)
+            if (props != null && props.attatchTo != null && props.pos.x == 0.0f && props.pos.y == 0.0f && props.pos.z == 0.0f)
             {
                 props = props.ShallowCopy();
                 props.pos = props.attatchTo.position;
@@ -96,39 +98,75 @@ namespace RaytracedAudio
             return AudioManager._instance.PlaySound(this, props);
         }
 
-        public AudioInstanceRef Play(AudioProps props, float volumeOverride = -1.0f, float pitchOverride = -1.0f)
+        public AudioInstanceWrap Play(AudioProps props, float volumeOverride = -1.0f, float pitchOverride = -1.0f)
         {
-            if (props.attatchTo != null && props.pos.x == 0.0f && props.pos.y == 0.0f && props.pos.z == 0.0f)
+            if (props != null && props.attatchTo != null && props.pos.x == 0.0f && props.pos.y == 0.0f && props.pos.z == 0.0f)
             {
                 props = props.ShallowCopy();
                 props.pos = props.attatchTo.position;
             }
 
-            AudioInstanceRef ai = AudioManager._instance.PlaySound(this, props);
-            if (volumeOverride >= 0.0f) ai._ai.SetVolume(volumeOverride);
-            if (pitchOverride >= 0.0f) ai._ai.SetPitch(pitchOverride);
+            AudioInstanceWrap ai = AudioManager._instance.PlaySound(this, props);
+            if (volumeOverride >= 0.0f) ai.ai.SetVolume(volumeOverride);
+            if (pitchOverride >= 0.0f) ai.ai.SetPitch(pitchOverride);
             return ai;
         }
 
-        public AudioInstanceRef Play(Transform attatchTo, float volumeOverride = -1.0f, float pitchOverride = -1.0f)
+        public AudioInstanceWrap Play(Transform attatchTo, float volumeOverride = -1.0f, float pitchOverride = -1.0f)
         {
-            AudioInstanceRef ai = AudioManager._instance.PlaySound(this, attatchTo != null ? new(attatchTo.position) : null);
-            if (volumeOverride >= 0.0f) ai._ai.SetVolume(volumeOverride);
-            if (pitchOverride >= 0.0f) ai._ai.SetPitch(pitchOverride);
+            AudioInstanceWrap ai = AudioManager._instance.PlaySound(this, attatchTo != null ? new(attatchTo.position) : null);
+            if (volumeOverride >= 0.0f) ai.ai.SetVolume(volumeOverride);
+            if (pitchOverride >= 0.0f) ai.ai.SetPitch(pitchOverride);
             return ai;
         }
 
-        public AudioInstanceRef Play(Vector3 pos, float volumeOverride = -1.0f, float pitchOverride = -1.0f)
+        public AudioInstanceWrap Play(Vector3 pos, float volumeOverride = -1.0f, float pitchOverride = -1.0f)
         {
-            AudioInstanceRef ai = AudioManager._instance.PlaySound(this, new(pos));
-            if (volumeOverride >= 0.0f) ai._ai.SetVolume(volumeOverride);
-            if (pitchOverride >= 0.0f) ai._ai.SetPitch(pitchOverride);
+            AudioInstanceWrap ai = AudioManager._instance.PlaySound(this, new(pos));
+            if (volumeOverride >= 0.0f) ai.ai.SetVolume(volumeOverride);
+            if (pitchOverride >= 0.0f) ai.ai.SetPitch(pitchOverride);
             return ai;
         }
 
-        public AudioConfig ShallowCopy()
+        public AudioInstanceWrap Play(string propName, float propValue, Transform attatchTo = null, Vector3 pos = default, float volumeOverride = -1.0f, float pitchOverride = -1.0f)
         {
-            return (AudioConfig)this.MemberwiseClone();
+            AudioInstanceWrap ai = Play(new(pos, propName, propValue, attatchTo));
+            if (volumeOverride >= 0.0f) ai.ai.SetVolume(volumeOverride);
+            if (pitchOverride >= 0.0f) ai.ai.SetPitch(pitchOverride);
+            return ai;
+        }
+
+        /// <summary>
+        /// If aiRef is valid tries to apply props to it otherwise plays and assigns played instance to aiRef
+        /// </summary>
+        public void PlaySingletone(ref AudioInstanceWrap aiRef, AudioProps props = null, bool setCustomPropsOnly = false, float volumeOverride = -1.0f, float pitchOverride = -1.0f)
+        {
+            if (aiRef.IsValid() == true)
+            {
+                props?.ApplyTo(in aiRef, setCustomPropsOnly);
+                return;
+            }
+
+            aiRef = Play(props);
+            if (volumeOverride >= 0.0f) aiRef.ai.SetVolume(volumeOverride);
+            if (pitchOverride >= 0.0f) aiRef.ai.SetPitch(pitchOverride);
+        }
+
+        public void Stop(in AudioInstanceWrap aiRef)
+        {
+            if (aiRef.TryGetAudioInstance(out AudioInstance ai) == false) return;
+            ai.Stop();
+        }
+
+        public void SetPaused(in AudioInstanceWrap aiRef, bool pause)
+        {
+            if (aiRef.TryGetAudioInstance(out AudioInstance ai) == false) return;
+            ai.SetPaused(pause);
+        }
+
+        public AudioReference ShallowCopy()
+        {
+            return (AudioReference)this.MemberwiseClone();
         }
     }
 
@@ -240,9 +278,8 @@ namespace RaytracedAudio
         /// <summary>
         /// Sets the props of the given AudioInstance if its valid
         /// </summary>
-        public void ApplyTo(AudioInstanceRef air, bool customPropsOnly = false)
+        public void ApplyTo(in AudioInstanceWrap air, bool customPropsOnly = false)
         {
-            if (air == null) return;
             AudioInstance ai = air.TryGetAudioInstance();
             if (ai == null) return;
 

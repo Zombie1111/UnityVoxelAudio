@@ -26,7 +26,7 @@ internal class AudioTracer
         };
     }
 
-    internal static void RemoveTraceInput(TraceInput traceInput)
+    internal static void DestroyTraceInput(TraceInput traceInput)
     {
 
     }

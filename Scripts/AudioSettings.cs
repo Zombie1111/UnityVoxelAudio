@@ -1,119 +1,140 @@
-using FMOD.Studio;
-using FMODUnity;
-using RaytracedAudio;
-using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using STOP_MODE = FMOD.Studio.STOP_MODE;
 
-public class AudioSettings : ScriptableObject
+
+namespace RaytracedAudio
 {
-    #region Singleton
-
-    private static AudioSettings instance = null;
-    internal static AudioSettings _instance
+    public class AudioSettings : ScriptableObject
     {
-        get
+        #region Singleton
+
+        private static AudioSettings instance = null;
+        internal static AudioSettings _instance
         {
-            if (instance != null) return instance;
-            instance = Resources.Load<AudioSettings>("AudioGlobalSettings");
-            if (instance == null) Debug.LogError("Expected AudioGlobalSettings asset to be found at `UnityRaytracedAudio/Resources/AudioGlobalSettings`, has it been deleted?");
-            else instance.Setup();
+            get
+            {
+                if (instance != null) return instance;
+                instance = Resources.Load<AudioSettings>("AudioGlobalSettings");
+                if (instance == null) Debug.LogError("Expected AudioGlobalSettings asset to be found at `UnityRaytracedAudio/Resources/AudioGlobalSettings`, has it been deleted?");
+                else instance.Setup();
 
-            return instance;
+                return instance;
+            }
         }
-    }
 
-    #endregion Singletone
+        #endregion Singletone
 
 #if UNITY_EDITOR
-    private void OnValidate()
-    {
-        Setup();
-    }
+        private void OnValidate()
+        {
+            Setup();
+        }
 #endif
 
-    private void Setup()
-    {
-        _buses = buses.ToArray();
-        _minMaxDistanceFactor = minMaxDistanceFactor;
-        busPathToBus.Clear();
+        private static bool isSetup = false;
 
-        foreach (BusConfig bus in buses)
+        private void Setup()
         {
-            bus.bus.clearHandle();//To make sure their path is correct
-            if (busPathToBus.TryAdd(bus.path, bus) == true || Application.isPlaying == false) continue;
-            Debug.Log("Bus path " + bus.path + " exists more than ones!");
-        }
-    }
+            isSetup = true;
+            if (defaultAudioConfigAsset == null && Application.isPlaying == true)
+            {
+                defaultAudioConfigAsset = ScriptableObject.CreateInstance<AudioConfigAsset>();
+                Debug.LogError("defaultAudioConfigAsset is not allow to be null! (Creating temp)");
+            }
 
-    internal void Dummy()//Just used to bus Setup() through _instance
-    {
+            _defaultAudioConfigAsset = defaultAudioConfigAsset;
+            _buses = buses.ToArray();
+            _minMaxDistanceFactor = minMaxDistanceFactor;
+            busPathToBus.Clear();
 
-    }
-
-    [Tooltip("Should contain all your buses")]
-    [SerializeField] private List<BusConfig> buses = new(1) { new() };
-    private static BusConfig[] _buses = new BusConfig[0];
-    private static readonly Dictionary<string, BusConfig> busPathToBus = new(6);
-
-    /// <summary>
-    /// Returns master bus if string is empty, null if path is invalid, otherwise returns bus at path.
-    /// </summary>
-    public static BusConfig GetBus(string busPath = "")
-    {
-        if (busPathToBus.TryGetValue(busPath, out BusConfig bus))
-        {
-            return bus;
+            foreach (BusConfig bus in buses)
+            {
+                bus.bus.clearHandle();//To make sure their path is correct
+                if (busPathToBus.TryAdd(bus.path, bus) == true || Application.isPlaying == false)
+                {
+                    busPathToBus.TryAdd(bus.GetFullPath(), bus);
+                    continue;
+                }
+                Debug.Log("Bus path " + bus.path + " exists more than ones!");
+            }
         }
 
-        Debug.LogError($"Bus with path {busPath} not found");
-        return null;
-    }
-
-    [Tooltip("Disable effects globally for all sounds (Only affects sounds played after this was set)")]
-    [SerializeField] private AudioEffects globalAudioEffects = AudioEffects.all;
-    [Tooltip("Global factor on how far away spatilized sounds can be heard")]
-    [SerializeField] private float minMaxDistanceFactor = 3.0f;
-    internal static float _minMaxDistanceFactor = 3.0f;
-
-    public static AudioEffects _globalAudioEffects
-    {
-        get => _instance.globalAudioEffects;
-        set
+        public void Init()//Just used to bus Setup() through _instance
         {
-            _instance.globalAudioEffects = value;
+
         }
-    }
 
-    private static bool audioIsPaused = false;
-    public static bool _isAudioPaused => audioIsPaused;
+        [Tooltip("Should contain all your buses")]
+        [SerializeField] private List<BusConfig> buses = new(1) { new() };
+        private static BusConfig[] _buses = new BusConfig[0];
+        private static readonly Dictionary<string, BusConfig> busPathToBus = new(6);
 
-    /// <summary>
-    /// Pauses or unpauses all pausable (or all if forceSet is true) audio sources (Wont unpause sources paused separately)
-    /// </summary>
-    public static void SetAudioPaused(bool toPaused, bool forceSet = false)
-    {
-        if (audioIsPaused == toPaused) return;
-        audioIsPaused = toPaused;
-
-        foreach (BusConfig bus in _buses)
+        /// <summary>
+        /// Returns master bus if string is empty, null if path is invalid, otherwise returns bus at path.
+        /// </summary>
+        public static BusConfig GetBus(string busPath = "")
         {
-            bus.SetPaused(toPaused, forceSet);
+            if (isSetup == false) _instance.Init();
+            if (busPathToBus.TryGetValue(busPath, out BusConfig bus))
+            {
+                return bus;
+            }
+
+            Debug.LogError($"Bus with path {busPath} not found");
+            return null;
         }
-    }
 
-    /// <summary>
-    /// Stops all pausable (or all if forceStop is true) audio sources. if immediately == false, FMOD fadeout is allowed
-    /// </summary>
-    public static void StopAudio(bool immediately = false, bool forceStop = false)
-    {
-        STOP_MODE mode = immediately == false ? STOP_MODE.ALLOWFADEOUT : STOP_MODE.IMMEDIATE;
+        [Tooltip("AudioConfigAsset to use if AudioReference.audioConfigOverride is null")]
+        [SerializeField] private AudioConfigAsset defaultAudioConfigAsset = null;
+        internal static AudioConfigAsset _defaultAudioConfigAsset;
+        [Tooltip("Disable effects globally for all sounds (Only affects sounds played after this was set)")]
+        [SerializeField] private AudioEffects globalAudioEffects = AudioEffects.all;
+        [Tooltip("Global factor on how far away spatilized sounds can be heard")]
+        [SerializeField] private float minMaxDistanceFactor = 3.0f;
+        internal static float _minMaxDistanceFactor = 3.0f;
 
-        foreach (BusConfig bus in _buses)
+        public static AudioEffects _globalAudioEffects
         {
-            bus.StopAll(mode, forceStop);
+            get => _instance.globalAudioEffects;
+            set
+            {
+                _instance.globalAudioEffects = value;
+            }
+        }
+
+        private static bool audioIsPaused = false;
+        public static bool _isAudioPaused => audioIsPaused;
+
+        /// <summary>
+        /// Pauses or unpauses all pausable (or all if forceSet is true) audio sources (Wont unpause sources paused separately)
+        /// </summary>
+        public static void SetAudioPaused(bool pause, bool forceSet = false)
+        {
+            if (audioIsPaused == pause) return;
+            if (isSetup == false) _instance.Init();
+            audioIsPaused = pause;
+
+            foreach (BusConfig bus in _buses)
+            {
+                if (bus.isPausable == false && forceSet == false) continue;
+                bus.SetPaused(pause);
+            }
+        }
+
+        /// <summary>
+        /// Stops all non persistent (or all if forceStop is true) audio sources. if stopImmediately == false, allows FMod fadeout
+        /// </summary>
+        public static void StopAllAudio(bool stopImmediately = false, bool forceStop = false)
+        {
+            if (isSetup == false) _instance.Init();
+            AudioInstance[] allAIs = AudioManager._instance.GetAllAIsSafe();
+
+            foreach (AudioInstance ai in allAIs)
+            {
+                if (ai.isPersistent == true && forceStop == false) continue;
+                ai.Stop(stopImmediately);
+            }
         }
     }
 }
+

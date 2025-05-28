@@ -14,7 +14,7 @@ public class RADemo_helpers : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.L))
         {
-            AudioSettings.StopAudio();
+            AudioSettings.StopAllAudio();
         }
     }
 }

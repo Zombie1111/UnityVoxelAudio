@@ -11,55 +11,68 @@ namespace RaytracedAudio
     public class AudioPlayer : MonoBehaviour
     {
         [SerializeField] private bool playOnAwake = true;
-        [SerializeField] private AudioConfigAsset audioConfigAsset = null;
-        [SerializeField] private AudioConfig audioConfig = new();
+        [SerializeField] private AudioReferenceAsset audioRefAsset = null;
+        [SerializeField] private AudioReference audioRef = new();
 
         [Header("Advanced")]
         [SerializeField] private CustomProp[] customProps = new CustomProp[0];
         [SerializeField] private float pitchOverride = -1.0f;
         [SerializeField] private float volumeOverride = -1.0f;
+        [Tooltip("If true stops the audio on disable instead of pausing")]
+        [SerializeField] private bool stopOnDisable = false;
         private readonly AudioProps defaultProps = new();
-        private readonly HashSet<AudioInstanceRef> ais = new(1);
+        private AudioInstanceWrap aiw;
 
 #if UNITY_EDITOR
         private void OnValidate()
         {
-            if (Application.isPlaying == false && audioConfigAsset != null)
-                audioConfigAsset.UpdateDefaultCustomProps(ref customProps);
-
-            foreach (AudioInstanceRef ai in ais)
-            {
-                if (customProps.Length > 0) ai._ai.SetCustomProps(customProps);
-                if (volumeOverride >= 0.0f) ai._ai.SetVolume(volumeOverride);
-                if (pitchOverride >= 0.0f) ai._ai.SetPitch(pitchOverride);
-            }
+            if (Application.isPlaying == false && audioRefAsset != null)
+                audioRefAsset.UpdateDefaultCustomProps(ref customProps);
 
             defaultProps.customProps = customProps;
+            if (aiw.TryGetAudioInstance(out AudioInstance ai) == false) return;
+
+            if (customProps.Length > 0) ai.SetCustomProps(customProps);
+            if (volumeOverride >= 0.0f) ai.SetVolume(volumeOverride);
+            if (pitchOverride >= 0.0f) ai.SetPitch(pitchOverride);
         }
 
         private void OnDrawGizmosSelected()
         {
-            if (Application.isPlaying == false && audioConfigAsset != null)
-                audioConfigAsset.UpdateDefaultCustomProps(ref customProps);
+            if (Application.isPlaying == false && audioRefAsset != null)
+                audioRefAsset.UpdateDefaultCustomProps(ref customProps);
         }
 #endif
 
         private void Awake()
         {
-            if (audioConfigAsset != null) audioConfig = audioConfigAsset.GetAudioConfig();
+            if (audioRefAsset != null) audioRef = audioRefAsset.GetAudioReference();
             defaultProps.attatchTo = transform;
             if (customProps.Length > 0) defaultProps.customProps = customProps;
-            if (playOnAwake == false) return;
-            Play();
+            if (stopOnDisable == false && playOnAwake == true) Play();
         }
 
         private void OnEnable()
         {
+            isActive = true;
+            if (stopOnDisable == true)
+            {
+                if (playOnAwake == true) Play();
+                return;
+            }
+
             SetPaused(false);
         }
 
         private void OnDisable()
         {
+            isActive = false;
+            if (stopOnDisable == true)
+            {
+                Stop();
+                return;
+            }
+
             SetPaused(true);
         }
 
@@ -68,8 +81,10 @@ namespace RaytracedAudio
             Stop();
         }
 
-        public AudioInstanceRef Play(AudioProps props = null)
+        public AudioInstanceWrap Play(AudioProps props = null)
         {
+            if (stopOnDisable == true && isActive == false) return new();//Dont allow playing if disabled
+
             if (props == null)
             {
                 defaultProps.pos = transform.position;
@@ -77,23 +92,17 @@ namespace RaytracedAudio
             }
             else if (props.attatchTo == null) props.attatchTo = transform;
 
-            AudioInstanceRef ai = audioConfig.Play(props, volumeOverride, pitchOverride);
-
-            if (isPaused == true) ai._ai.SetPaused(true);
-            ais.Add(ai);
-            return ai;
+            audioRef.PlaySingletone(ref aiw, props, true, volumeOverride, pitchOverride);
+            if (isPaused == true) aiw.TryGetAudioInstance().SetPaused(true);//Garanteed to be valid
+            return aiw;
         }
 
         public void Stop()
         {
-            foreach (AudioInstanceRef ai in ais)
-            {
-                ai._ai.Stop();
-            }
-
-            ais.Clear();
+            audioRef.Stop(aiw);
         }
 
+        private bool isActive = false;
         private bool isPaused = false;
 
         public void SetPaused(bool pause)
@@ -101,10 +110,7 @@ namespace RaytracedAudio
             if (pause == isPaused) return;
             isPaused = pause;
 
-            foreach (AudioInstanceRef ai in ais)
-            {
-                ai._ai.SetPaused(pause);
-            }
+            audioRef.SetPaused(aiw, pause);
         }
     }
 
@@ -114,20 +120,22 @@ namespace RaytracedAudio
     public class AudioPlayerEditor : Editor
     {
         SerializedProperty playOnAwake;
-        SerializedProperty audioConfigAsset;
-        SerializedProperty audioConfig;
+        SerializedProperty audioRefAsset;
+        SerializedProperty audioRef;
         SerializedProperty customProps;
         SerializedProperty pitchOverride;
         SerializedProperty volumeOverride;
+        SerializedProperty stopOverride;
 
         void OnEnable()
         {
             playOnAwake = serializedObject.FindProperty("playOnAwake");
-            audioConfigAsset = serializedObject.FindProperty("audioConfigAsset");
-            audioConfig = serializedObject.FindProperty("audioConfig");
+            audioRefAsset = serializedObject.FindProperty("audioRefAsset");
+            audioRef = serializedObject.FindProperty("audioRef");
             customProps = serializedObject.FindProperty("customProps");
             pitchOverride = serializedObject.FindProperty("pitchOverride");
             volumeOverride = serializedObject.FindProperty("volumeOverride");
+            stopOverride = serializedObject.FindProperty("stopOnDisable");
         }
 
         public override void OnInspectorGUI()
@@ -135,38 +143,38 @@ namespace RaytracedAudio
             serializedObject.Update();
 
             EditorGUILayout.PropertyField(playOnAwake);
-            EditorGUILayout.PropertyField(audioConfigAsset);
+            EditorGUILayout.PropertyField(audioRefAsset);
 
-            // Check if all selected audioConfigAsset values are null
-            bool showAudioConfig = ShouldShowAudioConfig();
+            // Check if all selected audioRefAsset values are null
+            bool showAudioReference = ShouldShowAudioReference();
 
-            if (showAudioConfig)
+            if (showAudioReference)
             {
-                EditorGUILayout.PropertyField(audioConfig, true);
+                EditorGUILayout.PropertyField(audioRef, true);
             }
 
             EditorGUILayout.Space();
             EditorGUILayout.PropertyField(customProps, true);
             EditorGUILayout.PropertyField(pitchOverride);
             EditorGUILayout.PropertyField(volumeOverride);
+            EditorGUILayout.PropertyField(stopOverride);
 
-            AudioConfigAsset aca = (AudioConfigAsset)audioConfigAsset.objectReferenceValue;
+            AudioReferenceAsset aca = (AudioReferenceAsset)audioRefAsset.objectReferenceValue;
             if (aca != null && aca.HasDefaultCustomProps() == true)
             {
                 EditorGUILayout.Space();
-                EditorGUILayout.HelpBox("Custom Props names are controlled by audioConfigAsset", MessageType.Info);
+                EditorGUILayout.HelpBox("Custom Props names are controlled by audioRefAsset", MessageType.Info);
             }
 
             serializedObject.ApplyModifiedProperties();
         }
 
-        private bool ShouldShowAudioConfig()
+        private bool ShouldShowAudioReference()
         {
-            // If any selected object has audioConfigAsset != null, return false
             foreach (var targetObj in serializedObject.targetObjects)
             {
-                SerializedObject so = new SerializedObject(targetObj);
-                var prop = so.FindProperty("audioConfigAsset");
+                SerializedObject so = new(targetObj);
+                var prop = so.FindProperty("audioRefAsset");
                 if (prop.objectReferenceValue != null)
                     return false;
             }

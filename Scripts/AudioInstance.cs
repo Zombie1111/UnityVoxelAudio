@@ -1,55 +1,53 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using FMODUnity;
 using FMOD.Studio;
-using Unity.Android.Types;
 
 namespace RaytracedAudio
 {
-    public class AudioInstanceRef//We cant use AudioInstance directly because it may be reused so the user accidentally sets another eventInstance
+    public readonly struct AudioInstanceWrap//We cant use AudioInstance directly because it may be reused so the user accidentally sets another eventInstance
     {
-        private static readonly AudioInstance dummyAI = new();
-
-        internal AudioInstanceRef(AudioInstance ai)//Prevents external creation
+        internal AudioInstanceWrap(AudioInstance ai)
         {
             this.ai = ai;
             id = ai.id;
         }
 
-        private readonly AudioInstance ai;
+        internal readonly AudioInstance ai;
         private readonly int id;
-
-        /// <summary>
-        /// Returns the AudioInstance, returns a dummy AudioInstance if its invalid
-        /// </summary>
-        public AudioInstance _ai
-        {
-            get
-            {
-                if (id != ai.id) return dummyAI;
-                return ai;
-            }
-        }
 
         /// <summary>
         /// Returns the AudioInstance if it is valid, otherwise returns null.
         /// </summary>
         public AudioInstance TryGetAudioInstance()
         {
-            if (id != ai.id) return null;
+            if (ai == null || id != ai.id) return null;
             return ai;
         }
 
+        public bool TryGetAudioInstance(out AudioInstance ai)
+        {
+            if (this.ai == null || id != this.ai.id)
+            {
+                ai = null;
+                return false;
+            }
+
+            ai = this.ai;
+            return true;
+        }
+
+        /// <summary>
+        /// Returns true if the AudioInstance is still active and has not been reused for another AudioInstance
+        /// </summary>
         public bool IsValid()
         {
-            return id == ai.id;
+            return ai != null && id == ai.id;
         }
     }
 
     public class AudioInstance
     {
-        internal static int nextId = 0;
+        internal static int nextId = 1;//0 is unitlized
 
         internal AudioInstance()//Prevents external creation
         {
@@ -57,13 +55,14 @@ namespace RaytracedAudio
         }
 
         /// <summary>
-        /// Negative if inactive
+        /// Negative or 0 if inactive
         /// </summary>
         internal volatile int id = -1;
         internal EventInstance clip;
         internal EVENT_CALLBACK callback;
         internal AudioTracer.TraceInput traceInput = null;
         internal AudioZones.ZoneInput zoneInput = null;
+        internal bool isPersistent = true;
 
         /// <summary>
         /// Assign only allowed on creation
@@ -75,16 +74,37 @@ namespace RaytracedAudio
         /// </summary>
         internal FMOD.DSP lowpassFilter;
         internal Transform parentTrans = null;
+        internal bool hadParentTrans = false;
 
-        internal readonly object selfLock = new();
+        private readonly object selfLock = new();
 
         /// <summary>
         /// Must be locked with selfLock
         /// </summary>
         internal State state;
 
+        internal State GetStateSafe()
+        {
+            State state;
+
+            lock (selfLock)
+            {
+                state = this.state;
+            }
+
+            return state;
+        }
+
+        internal void SetStateSafe(State newState)
+        {
+            lock (selfLock)
+            {
+                state = newState;
+            }
+        }
+
         /// <summary>
-        /// Write only allowed on creation
+        /// Write only allowed on creation/play
         /// </summary>
         internal AudioEffects audioEffects = AudioEffects.all;
 
@@ -93,13 +113,28 @@ namespace RaytracedAudio
         /// </summary>
         internal Vector3 position = Vector3.zero;
         /// <summary>
-        /// Worldspace direction where the sound is coming from (Direction from player ear pos)
+        /// Worldspace real position of the source
+        /// </summary>
+        public Vector3 _position => position;
+
+        /// <summary>
+        /// Worldspace direction where the sound is coming from (Direction from listener)
         /// </summary>
         internal Vector3 direction = Vector3.zero;
         /// <summary>
-        /// Worldspace occluded distance from the player ear pos to the source
+        /// Worldspace direction where the sound is coming from (Direction from listener)
+        /// </summary>
+        public Vector3 _direction => direction;
+
+        /// <summary>
+        /// Worldspace occluded distance from listener to the source
         /// </summary>
         internal float distance = 0.0f;
+        /// <summary>
+        /// Worldspace occluded distance from listener to the source
+        /// </summary>
+        public float _distance => distance;
+
         /// <summary>
         /// If parentTrans != null, this is the local position of the source relative to parentTrans
         /// </summary>
@@ -149,7 +184,7 @@ namespace RaytracedAudio
             pendingCreation = 0,
             pendingPlay = 10,
             playing = 20,
-            pendingDestroy = 30,
+            inActive = 30,
             destroyed = 40
         }
 
@@ -192,10 +227,15 @@ namespace RaytracedAudio
         public void SetParent(Transform newParent)
         {
             //Clear old parent
-            if (parentTrans != null) parentTrans = null;
-            if (newParent == parentTrans) return;
+            hadParentTrans = newParent != null;
+            if (parentTrans == newParent) return;
 
-            //newParent is garanteed to not be null here
+            if (newParent == null)
+            {
+                parentTrans = null;
+                return;
+            }
+
             posL = newParent.InverseTransformPoint(position);
             parentTrans = newParent;
         }
@@ -205,7 +245,7 @@ namespace RaytracedAudio
         /// </summary>
         public bool IsPlaying()
         {
-            return state == State.playing;
+            return GetStateSafe() == State.playing;
         }
 
         /// <summary>
@@ -228,6 +268,13 @@ namespace RaytracedAudio
         {
             if (clip.isValid() == false) return;
 
+            State state = GetStateSafe();
+            if (state == State.pendingCreation || state == State.pendingPlay)//Event has not started playing yet, clip.stop() wont work
+            {
+                AudioManager.EventCallback(EVENT_CALLBACK_TYPE.STOPPED, clip.handle, System.IntPtr.Zero);
+                return;
+            }
+            
             clip.stop(immediately == false ? FMOD.Studio.STOP_MODE.ALLOWFADEOUT
                 : FMOD.Studio.STOP_MODE.IMMEDIATE);
         }
@@ -255,6 +302,13 @@ namespace RaytracedAudio
 
         internal void TickSource(float deltaTime)
         {
+            //Is still valid?
+            if (hadParentTrans == true && parentTrans == null)
+            {
+                Stop(true);
+                return;
+            }
+
             //Update state
             lock (selfLock)
             {
@@ -293,7 +347,7 @@ namespace RaytracedAudio
 
                 //float wetL = Mathf.Lerp(-80.0f, 20.0f, traceData.resSurface.reflectness);
                 //float wetL = Mathf.Lerp(-80.0f, 20.0f, traceData.resSurface.reflectness);
-                float wetL = 10.377f * Mathf.Log(Mathf.Clamp01(traceInput.resSurface.reflectness)) + 95.029f; 
+                float wetL = 10.377f * Mathf.Log(Mathf.Clamp01(traceInput.resSurface.reflectness)) + 95.029f;
                 reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DECAYTIME, Mathf.Exp(0.0981f * wetL));
                 //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DECAYTIME, 2.0f * Mathf.Exp(0.0906f * (wetL + 80.00001f)));
 
@@ -310,17 +364,12 @@ namespace RaytracedAudio
             clip.set3DAttributes(fmod3D);
         }
 
-        internal void Dispose(bool destroying)
+        internal void Dispose(bool destroying)//Destroyed state is set before calling this
         {
-            if (audioEffects.HasAny() == true)
-            {
-                FMOD.RESULT result = clip.getChannelGroup(out FMOD.ChannelGroup cg);
-                if (result != FMOD.RESULT.OK)
-                {
-                    Debug.LogError("Error getting ChannelGroup for " + this);
-                    return;
-                }
+            if (clip.isValid() == false) return;
 
+            if (audioEffects.HasAny() == true && clip.getChannelGroup(out FMOD.ChannelGroup cg) == FMOD.RESULT.OK)
+            {//Its expected to fail if called before OnCreated()
                 if (reverbFilter.hasHandle())
                 {
                     cg.removeDSP(reverbFilter);
@@ -334,12 +383,9 @@ namespace RaytracedAudio
                 }
             }
 
-            if (destroying == false && clip.isValid() == true)
-            {
-                clip.stop(FMOD.Studio.STOP_MODE.IMMEDIATE);
-                clip.release();
-                clip.clearHandle();
-            }
+            if (destroying == false) clip.stop(FMOD.Studio.STOP_MODE.IMMEDIATE);
+            clip.release();
+            clip.clearHandle();
         }
 
         #endregion Effects

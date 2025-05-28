@@ -7,6 +7,7 @@ using FMODUnity;
 using System;
 using System.IO;
 using RaytracedAudio;
+using AudioSettings = RaytracedAudio.AudioSettings;
 
 namespace RaytracedAudioEditor
 {
@@ -20,7 +21,7 @@ namespace RaytracedAudioEditor
         {
             var result = FMOD.Studio.System.create(out fmodSystem);
             allBusPaths.Clear();
-
+            
             if (result != FMOD.RESULT.OK) return;
 
             try
@@ -71,7 +72,7 @@ namespace RaytracedAudioEditor
 
             //Get reference to the target object
             AudioSettings audioSettings = (AudioSettings)target;
-
+            
             // Use reflection to get the private 'buses' field
             var busesField = typeof(AudioSettings).GetField("buses", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             if (busesField == null) return;
@@ -116,6 +117,13 @@ namespace RaytracedAudioEditor
                 EditorGUILayout.HelpBox(
                     path.Replace("bus:/", string.Empty) + " has not been added to the bus list yet, all bus paths should exist in list!",
                     MessageType.Warning);
+            }
+
+            //Show error
+            if (AudioSettings._defaultAudioConfigAsset == null)
+            {
+                EditorGUILayout.Space();
+                EditorGUILayout.HelpBox("defaultAudioConfigAsset cannot be null!",MessageType.Error);
             }
         }
 

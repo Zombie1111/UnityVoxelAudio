@@ -14,5 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   buses:
   - path: 
+    isPausable: 0
+  - path: testAA Bus
     isPausable: 1
+  defaultAudioConfigAsset: {fileID: 11400000, guid: a02b7133d3544ab44a4bbc6201852588, type: 2}
   globalAudioEffects: 0
+  minMaxDistanceFactor: 3

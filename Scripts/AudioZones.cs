@@ -22,7 +22,7 @@ namespace RaytracedAudio
             };
         }
 
-        internal static void RemoveZoneInput(ZoneInput zoneInput)
+        internal static void DestroyZoneInput(ZoneInput zoneInput)
         {
 
         }

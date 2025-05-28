@@ -288,8 +288,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playOnAwake: 1
-  audioConfigAsset: {fileID: 0}
-  audioConfig:
+  audioRefAsset: {fileID: 0}
+  audioRef:
     clip:
       Guid:
         Data1: 1124159295
@@ -297,12 +297,11 @@ MonoBehaviour:
         Data3: 1422267529
         Data4: 383171806
       Path: event:/Example_impact
-    audioEffects: 0
-    singletone: 0
-    attatchTo: {fileID: 1121677709}
+    audioConfigOverride: {fileID: 0}
   customProps: []
   pitchOverride: -1
   volumeOverride: -1
+  stopOnDisable: 1
 --- !u!4 &1121677709
 Transform:
   m_ObjectHideFlags: 0
@@ -348,8 +347,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playOnAwake: 1
-  audioConfigAsset: {fileID: 0}
-  audioConfig:
+  audioRefAsset: {fileID: 0}
+  audioRef:
     clip:
       Guid:
         Data1: 1916647785
@@ -357,12 +356,11 @@ MonoBehaviour:
         Data3: -272359529
         Data4: 18594
       Path: event:/Example_loop
-    audioEffects: 0
-    singletone: 0
-    attatchTo: {fileID: 1147188416}
+    audioConfigOverride: {fileID: 0}
   customProps: []
   pitchOverride: -1
   volumeOverride: -1
+  stopOnDisable: 1
 --- !u!4 &1147188416
 Transform:
   m_ObjectHideFlags: 0
@@ -394,7 +392,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1367513697
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -417,9 +415,7 @@ MonoBehaviour:
         Data3: 1422267529
         Data4: 383171806
       Path: event:/Example_impact
-    audioEffects: 0
-    singletone: 0
-    attatchTo: {fileID: 0}
+    audioConfigOverride: {fileID: 0}
 --- !u!4 &1367513698
 Transform:
   m_ObjectHideFlags: 0
