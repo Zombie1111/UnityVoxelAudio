@@ -2,19 +2,24 @@ using Codice.Client.BaseCommands;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using RaytracedAudio;
+using AudioSettings = RaytracedAudio.AudioSettings;
 
-public class RADemo_helpers : MonoBehaviour
+namespace RaytracedAudio_demo
 {
-    void Update()
+    public class RADemo_helpers : MonoBehaviour
     {
-        if (Input.GetKeyDown(KeyCode.P))
+        void Update()
         {
-            AudioSettings.SetAudioPaused(!AudioSettings._isAudioPaused);
-        }
+            if (Input.GetKeyDown(KeyCode.P))
+            {
+                AudioSettings.SetAudioPaused(!AudioSettings._isAudioPaused);
+            }
 
-        if (Input.GetKeyDown(KeyCode.L))
-        {
-            AudioSettings.StopAllAudio();
+            if (Input.GetKeyDown(KeyCode.L))
+            {
+                AudioSettings.StopAllAudio();
+            }
         }
     }
 }
