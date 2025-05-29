@@ -31,11 +31,8 @@ namespace RaytracedAudio
         }
 #endif
 
-        private static bool isSetup = false;
-
         private void Setup()
         {
-            isSetup = true;
             if (defaultAudioConfigAsset == null && Application.isPlaying == true)
             {
                 defaultAudioConfigAsset = ScriptableObject.CreateInstance<AudioConfigAsset>();
@@ -45,6 +42,8 @@ namespace RaytracedAudio
             _defaultAudioConfigAsset = defaultAudioConfigAsset;
             _buses = buses.ToArray();
             _minMaxDistanceFactor = minMaxDistanceFactor;
+            _stopAudioOnSceneLoad = stopAudioOnSceneLoad;
+            __globalAudioEffects = globalAudioEffects;
             busPathToBus.Clear();
 
             foreach (BusConfig bus in buses)
@@ -59,6 +58,9 @@ namespace RaytracedAudio
             }
         }
 
+        /// <summary>
+        /// Initilizes the AudioSettings if its not already initlized
+        /// </summary>
         public void Init()//Just used to bus Setup() through _instance
         {
 
@@ -74,7 +76,7 @@ namespace RaytracedAudio
         /// </summary>
         public static BusConfig GetBus(string busPath = "")
         {
-            if (isSetup == false) _instance.Init();
+            _instance.Init();
             if (busPathToBus.TryGetValue(busPath, out BusConfig bus))
             {
                 return bus;
@@ -89,9 +91,13 @@ namespace RaytracedAudio
         internal static AudioConfigAsset _defaultAudioConfigAsset;
         [Tooltip("Disable effects globally for all sounds (Only affects sounds played after this was set)")]
         [SerializeField] private AudioEffects globalAudioEffects = AudioEffects.all;
+        internal static AudioEffects __globalAudioEffects = AudioEffects.all;
         [Tooltip("Global factor on how far away spatilized sounds can be heard")]
         [SerializeField] private float minMaxDistanceFactor = 3.0f;
         internal static float _minMaxDistanceFactor = 3.0f;
+        [Tooltip("If true non persistent audio will be stopped on SceneManager.OnSceneUnloaded")]
+        [SerializeField] private bool stopAudioOnSceneLoad = true;
+        internal static bool _stopAudioOnSceneLoad = true;
 
         public static AudioEffects _globalAudioEffects
         {
@@ -99,6 +105,7 @@ namespace RaytracedAudio
             set
             {
                 _instance.globalAudioEffects = value;
+                __globalAudioEffects = value;
             }
         }
 
@@ -111,8 +118,8 @@ namespace RaytracedAudio
         public static void SetAudioPaused(bool pause, bool forceSet = false)
         {
             if (audioIsPaused == pause) return;
-            if (isSetup == false) _instance.Init();
             audioIsPaused = pause;
+            _instance.Init();
 
             foreach (BusConfig bus in _buses)
             {
@@ -126,8 +133,8 @@ namespace RaytracedAudio
         /// </summary>
         public static void StopAllAudio(bool stopImmediately = false, bool forceStop = false)
         {
-            if (isSetup == false) _instance.Init();
-            AudioInstance[] allAIs = AudioManager._instance.GetAllAIsSafe();
+            _instance.Init();
+            AudioInstance[] allAIs = AudioManager._instance.GetAllAudioInstancesSafe();
 
             foreach (AudioInstance ai in allAIs)
             {

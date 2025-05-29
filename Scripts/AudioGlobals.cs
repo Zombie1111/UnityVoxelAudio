@@ -64,7 +64,7 @@ namespace RaytracedAudio
             clip = EventReference.Find(eventPath);
             this.audioConfigOverride = audioConfigOverride;
         }
-        
+
         [SerializeField] internal EventReference clip;
         [SerializeField] private AudioConfigAsset audioConfigOverride = null;
 
@@ -361,18 +361,18 @@ namespace RaytracedAudio
         public static bool HasTracing(this AudioEffects aEffects)
         {
             return (aEffects == AudioEffects.all || aEffects == AudioEffects.noZones)
-                && (AudioSettings._globalAudioEffects == AudioEffects.all || AudioSettings._globalAudioEffects == AudioEffects.noZones);
+                && (AudioSettings.__globalAudioEffects == AudioEffects.all || AudioSettings.__globalAudioEffects == AudioEffects.noZones);
         }
 
         public static bool HasZones(this AudioEffects aEffects)
         {
             return (aEffects == AudioEffects.all || aEffects == AudioEffects.noTracing)
-                && (AudioSettings._globalAudioEffects == AudioEffects.all || AudioSettings._globalAudioEffects == AudioEffects.noTracing);
+                && (AudioSettings.__globalAudioEffects == AudioEffects.all || AudioSettings.__globalAudioEffects == AudioEffects.noTracing);
         }
 
         public static bool HasAny(this AudioEffects aEffects)
         {
-            return aEffects != AudioEffects.nothing && AudioSettings._globalAudioEffects != AudioEffects.nothing;
+            return aEffects != AudioEffects.nothing && AudioSettings.__globalAudioEffects != AudioEffects.nothing;
         }
 
         internal static T[] GetWithLenght<T>(this T[] array, int newLength)

@@ -46,7 +46,7 @@ namespace RaytracedAudio
 
         private bool isInitilized = false;
         internal static StudioListener listener = null;
-        
+
         /// <summary>
         /// Sets the listener to use, if null it will try to find one in the scene. Returns true if listener is valid
         /// </summary>
@@ -73,15 +73,15 @@ namespace RaytracedAudio
         {
             if (isInitilized == true) return;
 
-            SceneManager.sceneLoaded += OnSceneLoaded;
+            SceneManager.sceneUnloaded += OnSceneUnLoaded;
             AudioSettings._instance.Init();//Setup
             SetListener();
             isInitilized = true;
         }
 
-        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        private void OnSceneUnLoaded(Scene scene)//We cant stop in OnSceneloaded since it runs after Awake()
         {
-            if (mode == LoadSceneMode.Additive) return;
+            if (AudioSettings._stopAudioOnSceneLoad == false) return;
             AudioSettings.StopAllAudio();
         }
 
@@ -95,7 +95,7 @@ namespace RaytracedAudio
             if (isInitilized == false) return;
             isInitilized = false;
 
-            SceneManager.sceneLoaded -= OnSceneLoaded;
+            SceneManager.sceneUnloaded -= OnSceneUnLoaded;
             AudioSettings.StopAllAudio(true, true);
         }
 
@@ -114,7 +114,7 @@ namespace RaytracedAudio
             //Tick sources
             float deltaTime = Time.deltaTime;
 
-            foreach (AudioInstance ai in GetAllAIsSafe())
+            foreach (AudioInstance ai in GetAllAudioInstancesSafe())
             {
                 ai.TickSource(deltaTime);
             }
@@ -141,7 +141,10 @@ namespace RaytracedAudio
         /// </summary>
         private readonly List<AudioInstance> allAIs = new(32);
 
-        internal AudioInstance[] GetAllAIsSafe()
+        /// <summary>
+        /// Returns all active AudioInstances
+        /// </summary>
+        public AudioInstance[] GetAllAudioInstancesSafe()
         {
             AudioInstance[] ais;
             lock (aiContainersLock)
@@ -183,7 +186,7 @@ namespace RaytracedAudio
             {
                 allAIs.Add(ai);//Its worth adding/removing everytime to avoid unnecessary ticking
             }
-            
+
             //Configure
             if (aProps != null) ai.fmod3D.position = aProps.pos.ToFMODVector();
             ai.clip.set3DAttributes(ai.fmod3D);//Must be called to not get warning
@@ -284,7 +287,7 @@ namespace RaytracedAudio
                 if (ai.clip.isValid() == false) return;
                 if (ai.GetStateSafe() == AudioInstance.State.pendingCreation)
                     ai.SetStateSafe(AudioInstance.State.pendingPlay);//We always wanna setup filter stuff but not set state if stopped manually before OnCreated()
-                
+
                 if (ai.audioEffects.HasAny() == true)
                 {
                     //https://bobthenameless.github.io/fmod-studio-docs/generated/FMOD_DSP_SFXREVERB.html
@@ -348,7 +351,7 @@ namespace RaytracedAudio
                         //ss.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.EARLYLATEMIX, 66.0f);
                         //ss.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.WETLEVEL, 1.2f);
                         //ss.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DRYLEVEL, 0.0f);
-                        
+
                         cg.addDSP(0, ai.reverbFilter);
                     }
                 }
@@ -395,7 +398,7 @@ namespace RaytracedAudio
 
         #endregion Play/Stop sounds
 
-        
+
     }
 }
 
