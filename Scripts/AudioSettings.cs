@@ -43,6 +43,8 @@ namespace RaytracedAudio
             _buses = buses.ToArray();
             _minMaxDistanceFactor = minMaxDistanceFactor;
             _stopAudioOnSceneLoad = stopAudioOnSceneLoad;
+            _mask = mask;
+            _voxSnapDistance = voxSnapDistance;
             __globalAudioEffects = globalAudioEffects;
             busPathToBus.Clear();
 
@@ -56,6 +58,11 @@ namespace RaytracedAudio
                 }
                 Debug.Log("Bus path " + bus.path + " exists more than ones!");
             }
+
+#if UNITY_EDITOR
+            _debugMode = debugMode;
+            if (Application.isPlaying == true) AudioManager._instance.gameObject.hideFlags = debugMode != DebugMode.none ? HideFlags.None : HideFlags.HideInHierarchy;
+#endif
         }
 
         /// <summary>
@@ -98,6 +105,19 @@ namespace RaytracedAudio
         [Tooltip("If true non persistent audio will be stopped on SceneManager.OnSceneUnloaded")]
         [SerializeField] private bool stopAudioOnSceneLoad = true;
         internal static bool _stopAudioOnSceneLoad = true;
+
+        [Header("Audio Occlusion")]
+        [Tooltip("Layers that has solid voxels, usually also player collidable")]
+        [SerializeField] private LayerMask mask = Physics.AllLayers;
+        internal static LayerMask _mask = Physics.AllLayers;
+        [SerializeField] private int voxSnapDistance = 3;
+        internal static int _voxSnapDistance = 3;
+
+#if UNITY_EDITOR
+        [Header("Debug")]
+        [SerializeField] private DebugMode debugMode = DebugMode.none;
+        internal static DebugMode _debugMode = DebugMode.none;
+#endif
 
         public static AudioEffects _globalAudioEffects
         {

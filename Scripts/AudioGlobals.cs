@@ -325,6 +325,14 @@ namespace RaytracedAudio
         nothing = 20
     }
 
+#if UNITY_EDITOR
+    internal enum DebugMode
+    {
+        none,
+        drawAudioOcclusion,
+    }
+#endif
+
     #region Audio Callbacks
 
     public enum AudioCallback

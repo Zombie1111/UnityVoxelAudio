@@ -298,6 +298,12 @@ namespace RaytracedAudio
             clip.setPitch(newPitch);
         }
 
+        internal void Destroy()
+        {
+            if (clip.isValid() == false) return;
+            AudioManager.EventCallback(EVENT_CALLBACK_TYPE.DESTROYED, clip.handle, System.IntPtr.Zero);
+        }
+
         #region Effects
 
         internal void TickSource(float deltaTime)
@@ -383,7 +389,7 @@ namespace RaytracedAudio
                 }
             }
 
-            if (destroying == false) clip.stop(FMOD.Studio.STOP_MODE.IMMEDIATE);
+            clip.stop(FMOD.Studio.STOP_MODE.IMMEDIATE);
             clip.release();
             clip.clearHandle();
         }

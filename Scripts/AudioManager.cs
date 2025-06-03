@@ -13,6 +13,20 @@ namespace RaytracedAudio
     {
         #region Singleton
 
+#if UNITY_EDITOR
+        private void OnDrawGizmos()
+        {
+            if (Application.isPlaying == true)
+            {
+                AudioTracer.DebugDrawGizmos();
+                return;
+            }
+
+            Debug.LogError("AudioManager should never be created manually!");
+            DestroyImmediate(this);
+        }
+#endif
+
         private static AudioManager instance;
         internal static AudioManager _instance
         {
@@ -25,11 +39,16 @@ namespace RaytracedAudio
                 {
                     GameObject newObj = new("Audio Manager")
                     {
-                        hideFlags = HideFlags.HideAndDontSave//FMod freezes if this is not true
+                        hideFlags =
+#if UNITY_EDITOR
+                        AudioSettings._debugMode != DebugMode.none ? HideFlags.None :
+#endif
+                        HideFlags.HideInHierarchy
                     };
 
                     instance = newObj.AddComponent<AudioManager>();
                 }
+                else Debug.Log("Audio Manager may have been created manually!");
 
                 if (instance.transform.childCount > 0) Debug.Log("The AudioManager should not have any children but " + instance.transform.name + " has!");
                 instance.gameObject.SetActive(true);
@@ -71,11 +90,12 @@ namespace RaytracedAudio
 
         private void Init()
         {
-            if (isInitilized == true) return;
+            if (isInitilized == true) return; 
 
             SceneManager.sceneUnloaded += OnSceneUnLoaded;
-            AudioSettings._instance.Init();//Setup
+            AudioSettings._instance.Init();//Setup 
             SetListener();
+            AudioTracer.Init();
             isInitilized = true;
         }
 
@@ -87,6 +107,7 @@ namespace RaytracedAudio
 
         private void OnDestroy()
         {
+            AudioTracer.Destroy();
             Destroy();
         }
 
@@ -96,11 +117,16 @@ namespace RaytracedAudio
             isInitilized = false;
 
             SceneManager.sceneUnloaded -= OnSceneUnLoaded;
-            AudioSettings.StopAllAudio(true, true);
+            AudioInstance[] allAIs = AudioManager._instance.GetAllAudioInstancesSafe();
+
+            foreach (AudioInstance ai in allAIs)
+            {
+                ai.Destroy();
+            }
         }
 
         /// <summary>
-        /// Last position of the listener
+        /// Latest position of the listener
         /// </summary>
         internal static Vector3 camPos;
 
@@ -122,7 +148,7 @@ namespace RaytracedAudio
 
         private void OnDisable()
         {
-            if (enabled == true && gameObject.activeInHierarchy == true) return;
+            if (enabled == true) return;
             Debug.LogError("The audio manager should never be disabled!");
         }
 
@@ -202,17 +228,18 @@ namespace RaytracedAudio
         }
 
         [AOT.MonoPInvokeCallback(typeof(FMOD.Studio.EVENT_CALLBACK))]
-        internal static FMOD.RESULT EventCallback(FMOD.Studio.EVENT_CALLBACK_TYPE type, IntPtr instance, IntPtr parameterPtr)
+        internal static FMOD.RESULT EventCallback(FMOD.Studio.EVENT_CALLBACK_TYPE type, IntPtr clipPTR, IntPtr parameterPtr)
         {
             //Not invoked from main thread
             //FMod freezes if any exception is thrown from EvenCallback
-            AudioManager am = _instance;
+            AudioManager am = instance;
+            if (am == null) return FMOD.RESULT.OK;//Expected to happen on exit
 
             FMOD.RESULT result = FMOD.RESULT.OK;
             AudioInstance ai;
             lock (am.aiContainersLock)
             {
-                ai = am.handleToAI[instance];
+                ai = am.handleToAI[clipPTR];
             }
 
             switch (type)
@@ -240,7 +267,7 @@ namespace RaytracedAudio
                     break;
                 default:
                     result = FMOD.RESULT.ERR_BADCOMMAND;
-                    Debug.LogError(type + " not expected " + instance);
+                    Debug.LogError(type + " not expected " + clipPTR);
                     break;
             }
 
@@ -295,7 +322,7 @@ namespace RaytracedAudio
                     result = ai.clip.getChannelGroup(out FMOD.ChannelGroup cg);
                     if (result != FMOD.RESULT.OK)
                     {
-                        Debug.LogError("Error getting ChannelGroup for " + instance);
+                        Debug.LogError("Error getting ChannelGroup for " + clipPTR);
                         return;
                     }
 
@@ -391,7 +418,7 @@ namespace RaytracedAudio
 
                 lock (am.aiContainersLock)
                 {
-                    am.handleToAI.Remove(instance);
+                    am.handleToAI.Remove(clipPTR);
                 }
             }
         }
