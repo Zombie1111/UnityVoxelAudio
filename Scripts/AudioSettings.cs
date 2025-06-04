@@ -45,6 +45,7 @@ namespace RaytracedAudio
             _stopAudioOnSceneLoad = stopAudioOnSceneLoad;
             _mask = mask;
             _voxSnapDistance = voxSnapDistance;
+            _occlusionLerpSpeed = occlusionLerpSpeed;
             __globalAudioEffects = globalAudioEffects;
             busPathToBus.Clear();
 
@@ -112,6 +113,8 @@ namespace RaytracedAudio
         internal static LayerMask _mask = Physics.AllLayers;
         [SerializeField] private int voxSnapDistance = 3;
         internal static int _voxSnapDistance = 3;
+        [SerializeField] private float occlusionLerpSpeed = 5.0f;
+        internal static float _occlusionLerpSpeed = 5.0f;
 
 #if UNITY_EDITOR
         [Header("Debug")]

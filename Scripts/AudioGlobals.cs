@@ -330,6 +330,7 @@ namespace RaytracedAudio
     {
         none,
         drawAudioOcclusion,
+        drawAudioDirection,
     }
 #endif
 

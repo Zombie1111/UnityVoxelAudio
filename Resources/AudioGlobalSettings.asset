@@ -25,4 +25,5 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   voxSnapDistance: 3
-  debugMode: 1
+  occlusionLerpSpeed: 8
+  debugMode: 2

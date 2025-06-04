@@ -1,6 +1,7 @@
 using UnityEngine;
 using FMODUnity;
 using FMOD.Studio;
+using UnityEditor.DeviceSimulation;
 
 namespace RaytracedAudio
 {
@@ -339,8 +340,27 @@ namespace RaytracedAudio
             //Update effects
             if (traceInput != null)
             {
-                direction = traceInput.resDirection;
-                distance = traceInput.resDistance;
+                float dis = AudioTracer.SampleOcclusionAtPos(position, out Vector3 dir);
+                float ocSpeed = AudioSettings._occlusionLerpSpeed / (1.0f + (dis / AudioTracer.maxHearRadiusMeter));
+                distance = Mathf.Lerp(distance, dis, AudioSettings._occlusionLerpSpeed * deltaTime);
+                direction = Vector3.Slerp(direction, dir, AudioSettings._occlusionLerpSpeed * deltaTime);
+
+                //int voxI = VoxHelpFunc.PosToWVoxIndex_snapped(sceneCamPos, voxHandler._voxWorldReadonly, out _, 1);
+                //if (readFlip.voxsDis[voxI] < 10000)
+                //{
+                //    voxI = readFlip.voxsDirectI[voxI];
+                //
+                //    Gizmos.color = Color.blue;
+                //    if (voxI < 0) Gizmos.DrawCube(readFlip.camPos, voxSize);
+                //    else
+                //    {
+                //        Vector3 pos = VoxHelpFunc.WVoxIndexToPos_snapped(voxI, voxHandler._voxWorldReadonly);
+                //        Gizmos.DrawCube(pos, voxSize);
+                //    }
+                //}
+
+                //direction = traceInput.resDirection;
+                //distance = traceInput.resDistance;
 
                 //Bounce brightness (0.0 == di0, de100: 0.5 == di50, de50, 1.0, di100, de0)
                 reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DIFFUSION, Mathf.Lerp(0.0f, 100.0f, traceInput.resSurface.brightness));
@@ -364,6 +384,13 @@ namespace RaytracedAudio
                 direction = (position - AudioManager.camPos).normalized;
                 distance = (position - AudioManager.camPos).magnitude;
             }
+
+#if UNITY_EDITOR
+            if (AudioSettings._debugMode == DebugMode.drawAudioDirection)
+            {
+                Debug.DrawLine(AudioManager.camPos, AudioManager.camPos + (0.25f * distance * direction), Color.magenta, 0.1f);
+            }
+#endif
 
             //Apply 3D
             fmod3D.position = (AudioManager.camPos + (direction * (distance / AudioSettings._minMaxDistanceFactor))).ToFMODVector();

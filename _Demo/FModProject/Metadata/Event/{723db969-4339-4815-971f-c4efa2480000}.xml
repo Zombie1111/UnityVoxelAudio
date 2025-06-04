@@ -5,7 +5,7 @@
 			<value>Example_loop</value>
 		</property>
 		<property name="outputFormat">
-			<value>1</value>
+			<value>2</value>
 		</property>
 		<relationship name="folder">
 			<destination>{c950d87c-0235-430e-bc6c-b95b7ab2c0a7}</destination>
@@ -109,9 +109,11 @@
 	<object class="MixerBusEffectChain" id="{6e17e49e-8895-4329-b242-d0fe3e194494}">
 		<relationship name="effects">
 			<destination>{0aaa5bd2-a160-4fb0-b675-5dd56b6398d1}</destination>
+			<destination>{a751a72c-6dc3-49ee-85ec-e07f2cc53bb5}</destination>
 		</relationship>
 	</object>
 	<object class="MixerBusPanner" id="{776ae8d8-6f25-4722-8c02-73a4417083af}" />
 	<object class="MixerBusFader" id="{b6e26126-2e5e-4b01-ac9d-02163eaa71e5}" />
 	<object class="MixerBusFader" id="{0aaa5bd2-a160-4fb0-b675-5dd56b6398d1}" />
+	<object class="SpatialiserEffect" id="{a751a72c-6dc3-49ee-85ec-e07f2cc53bb5}" />
 </objects>

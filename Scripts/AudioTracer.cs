@@ -136,7 +136,7 @@ internal class AudioTracer
         flipA = new(voxHandler._voxWorldReadonly.vCountXYZ);
         flipB = new(voxHandler._voxWorldReadonly.vCountXYZ);
         readFlip = GetNextFlip();
-        writeFlip = null;
+        writeFlip = GetNextFlip();
 
         o_job = new()
         {
@@ -170,6 +170,7 @@ internal class AudioTracer
     private unsafe class FlipFlop
     {
         internal readonly ushort* voxsDis;
+        internal readonly int* voxsDirectI;
         internal Vector3 camPos;
 
         internal FlipFlop(int voxCountXYZ)
@@ -177,11 +178,16 @@ internal class AudioTracer
             int allocSize = voxCountXYZ * UnsafeUtility.SizeOf<ushort>();
             voxsDis = (ushort*)UnsafeUtility.Malloc(allocSize, UnsafeUtility.AlignOf<ushort>(), Allocator.Persistent);
             UnsafeUtility.MemSet(voxsDis, 0xFF, allocSize);
+
+            allocSize = voxCountXYZ * UnsafeUtility.SizeOf<int>();
+            voxsDirectI = (int*)UnsafeUtility.Malloc(allocSize, UnsafeUtility.AlignOf<int>(), Allocator.Persistent);
+            UnsafeUtility.MemSet(voxsDirectI, 0xFF, allocSize);
         }
 
         internal void Dispose()
         {
             UnsafeUtility.Free(voxsDis, Allocator.Persistent);
+            UnsafeUtility.Free(voxsDirectI, Allocator.Persistent);
         }
     }
 
@@ -190,7 +196,7 @@ internal class AudioTracer
 
     private static unsafe void OnGlobalReadAccessStart()
     {
-        if (o_jobIsActive == true) return;
+        if (o_jobIsActive == true || voxelSystemIsValid == false) return;
 
         //Get empty pos
         if (VoxHelpFunc.GetClosestVisibleAirVoxel(AudioManager.camPos, voxHandler._voxWorldReadonly, o_job.voxsType, out int voxI, out Vector3 voxPos,
@@ -200,16 +206,16 @@ internal class AudioTracer
             return;
         }
 
-        writeFlip = GetNextFlip();
         writeFlip.camPos = voxPos;
-
         o_job.voxsDis = writeFlip.voxsDis;
+        o_job.voxsDirectI = writeFlip.voxsDirectI;
         o_job.camVoxI = voxI;
 
         o_jobIsActive = true;
         o_handle = o_job.Schedule();
-
-        OnGlobalReadAccessStop();
+        //VoxHelpFunc.Debug_toggleTimer();
+        //OnGlobalReadAccessStop();
+        //VoxHelpFunc.Debug_toggleTimer();
     }
 
     private static void OnGlobalReadAccessStop()
@@ -217,13 +223,15 @@ internal class AudioTracer
         if (o_jobIsActive == false) return;
 
         readFlip = writeFlip;
-        writeFlip = null;
+        writeFlip = GetNextFlip();//We wanna flip at stop so other stuff can safety get read at OnGlobalReadAccessStart without worrying about execution order
 
         o_handle.Complete();
         o_jobIsActive = false;
     }
 
-    private const ushort maxHearRadiusVox = 20;//140 takes ~100ms, 70 takes
+    internal const float maxHearRadiusMeter = 35.0f;
+    private const ushort maxHearRadiusVox = 350;//maxHearRadiusVox = maxHearRadiusMeter * 5 / VoxGlobalSettings.voxelSizeWorld (350/35m takes 9ms)
+    private const int voxMargin = 1;
 
     [BurstCompile]
     private unsafe struct ComputeOcclusion_job : IJob
@@ -232,6 +240,7 @@ internal class AudioTracer
         internal NativeReference<VoxWorld>.ReadOnly voxWorld;
 
         [NativeDisableUnsafePtrRestriction] internal ushort* voxsDis;
+        [NativeDisableUnsafePtrRestriction] internal int* voxsDirectI;
         [NativeDisableUnsafePtrRestriction] internal int* queueVoxI;
 
         internal int camVoxI;
@@ -240,13 +249,22 @@ internal class AudioTracer
         {
             VoxWorld vWorld = voxWorld.Value;
             UnsafeUtility.MemSet(voxsDis, 0xFF, vWorld.vCountXYZ * UnsafeUtility.SizeOf<ushort>());
-            int* voxDirs = vWorld.GetVoxAxisDirsUnsafe();
+            UnsafeUtility.MemSet(voxsDirectI, 0xFF, vWorld.vCountXYZ * UnsafeUtility.SizeOf<int>());//int 0xFF == -1
+            int* voxDirs = vWorld.GetVoxAxisDirsUnsafe(out ushort* voxDirsDis);
             int queueHead = 0;
             int queueTail = 0;
             int queueCount = 0;
 
+            int vCountX = vWorld.vCountX;
             int vCountY = vWorld.vCountY;
+            int vCountYZ = vWorld.vCountYZ;
             int vCountZ = vWorld.vCountZ;
+
+
+            int camX = camVoxI / vCountYZ;
+            int remI = camVoxI % vCountYZ;
+            int camY = remI / vCountZ;
+            int camZ = remI % vCountZ;
 
             voxsDis[camVoxI] = 0;
             queueVoxI[queueTail] = camVoxI;
@@ -257,43 +275,68 @@ internal class AudioTracer
             bool hasLogged = false;
 #endif
 
-            while (queueCount > 0)
+            while (queueCount > 0)//Can probably be optimized further by using a bucket/priority order
             {
+                //Dequeue
                 int voxI = queueVoxI[queueHead];
                 queueHead = (queueHead + 1) % _searchQueueSize;
                 queueCount--;
-                if (VoxHelpBurst.IsWVoxIndexValid(voxI, vWorld, 1) == false) continue;
-
                 ushort activeDis = voxsDis[voxI];
-                activeDis++;
 
-                //The direct voxels thing could be used for audio direction. If direct store itself voxel index,
-                //when spreading to indirect set its stored voxel index to current one.
-                //But how would I apply the direction efficently? Is setting soure position the only way, using transformjob may be fast enough.
-                //Chebyshev distance
-                int tempReminderA = voxI % (vCountY * vCountZ);
-                int tempReminderB = camVoxI % (vCountY * vCountZ);
+                //Per axis voxel count and is voxI valid?
+                int ix = voxI / vCountYZ;
+                if (ix + voxMargin >= vCountX || ix < voxMargin) continue;
 
-                int airDis = (math.max(math.abs((voxI / (vCountY * vCountZ)) - (camVoxI / (vCountY * vCountZ))),
-                    math.max(math.abs((tempReminderA / vCountZ) - (tempReminderB / vCountZ)),
-                    math.abs((tempReminderA % vCountZ) - (tempReminderB % vCountZ)))));
+                remI = voxI % vCountYZ;
+                int iy = remI / vCountZ;
+                if (iy + voxMargin >= vCountY || iy < voxMargin) continue;
 
-                if (airDis - activeDis < -1)
+                int iz = remI % vCountZ;
+                if (iz + voxMargin >= vCountZ || iz < voxMargin) continue;
+
+                //Voxel distance
+                int directVoxI = voxsDirectI[voxI];
+
+                if (directVoxI < 0)
                 {
-                    //nextDis++;
-                    activeDis += 10;
+                    ix -= camX; if (ix < 0) ix = -ix;
+                    iy -= camY; if (iy < 0) iy = -iy;
+                    iz -= camZ; if (iz < 0) iz = -iz;
+
+                    if (ix < iy)
+                    {
+                        (iy, ix) = (ix, iy);
+                    }
+                    if (iy < iz)
+                    {
+                        (iz, iy) = (iy, iz);
+                    }
+                    if (ix < iy)
+                    {
+                        (iy, ix) = (ix, iy);
+                    }
+
+                    ushort airDis = (ushort)(5 * ix + 2 * (iy + iz));
+
+                    if (airDis - activeDis < 0)
+                    {
+                        //Is indirect
+                        directVoxI = voxI;
+                        //activeDis = 10000;
+                    }
                 }
 
-
+                //Spread
                 for (int i = 0; i < 26; i++)
                 {
                     int nextVoxI = voxI + voxDirs[i];
+                    ushort nextDis = (ushort)(activeDis + voxDirsDis[i]);
                     //if (nextVoxI < 0 || nextVoxI >= vWorld.vCountXYZ) continue;
-                    if (voxsDis[nextVoxI] <= activeDis) continue;//Old value is better
+                    if (voxsDis[nextVoxI] <= nextDis) continue;//Old value is better
 
-
-                    voxsDis[nextVoxI] = activeDis;
-                    if (activeDis > maxHearRadiusVox) continue;
+                    voxsDirectI[nextVoxI] = directVoxI;
+                    voxsDis[nextVoxI] = nextDis;
+                    if (nextDis > maxHearRadiusVox) continue;
 
                     byte nextVoxType = voxsType[nextVoxI];
                     if (nextVoxType > VoxGlobalSettings.solidTypeStart)
@@ -309,7 +352,7 @@ internal class AudioTracer
                         break;
                     }
 #endif
-
+                    //Enqueue
                     queueVoxI[queueTail] = nextVoxI;
                     queueTail = (queueTail + 1) % _searchQueueSize;
                     queueCount++;
@@ -317,14 +360,80 @@ internal class AudioTracer
             }
 
             UnsafeUtility.Free(voxDirs, Allocator.Temp);
+            UnsafeUtility.Free(voxDirsDis, Allocator.Temp);
         }
     }
     #endregion Compute voxels
+
+    private const int sampleStepSize = 6;
+    private const int sampleStepCount = 1;
+
+    public static unsafe float SampleOcclusionAtPos(Vector3 pos, out Vector3 resultDirection)
+    {
+        //Get source vox
+        int voxI = VoxHelpFunc.PosToWVoxIndex_snapped(pos, voxHandler._voxWorldReadonly, out _, 1);
+        float vDis = readFlip.voxsDis[voxI];
+        int[] vOffsets = voxHandler._voxWorldReadonly.GetVoxDirs();
+
+        if (vDis > maxHearRadiusVox)
+        {
+            for (int i = 1; i < vOffsets.Length; i++)
+            {
+                int vI = voxI + vOffsets[i];
+                float vD = readFlip.voxsDis[voxI];
+                if (vD > maxHearRadiusVox) continue;
+
+                vDis = vD;
+                voxI = vI;
+                break;
+            }
+
+            //Unhearable?
+            if (vDis > maxHearRadiusVox)
+            {
+                resultDirection = (pos - AudioManager.camPos).normalized;
+                return maxHearRadiusMeter;
+            }
+        }
+
+        //Direct?
+        int vDirectI = readFlip.voxsDirectI[voxI];
+        //if (vDirectI < 0)
+        //{
+        //    resultDirection = (pos - AudioManager.camPos).normalized;
+        //    return (vDis / 5) * VoxGlobalSettings.voxelSizeWorld;;
+        //}
+
+        //It is indirect, sample multiple points for smoother direction
+        resultDirection = ((vDirectI < 0 ? pos : VoxHelpFunc.WVoxIndexToPos_snapped(vDirectI, voxHandler._voxWorldReadonly))
+            - AudioManager.camPos).normalized * (100.0f / vDis);
+        int maxStepValue = sampleStepCount * sampleStepSize;
+
+        for (int step = sampleStepSize; step <= maxStepValue; step += sampleStepCount)
+        {
+            for (int i = 1; i < vOffsets.Length; i++)
+            {
+                int vI = voxI + (vOffsets[i] * step);
+                if (VoxHelpBurst.IsWVoxIndexValidFast(vI, voxHandler._voxWorldReadonly) == false) continue;
+
+                float vD = readFlip.voxsDis[vI];
+                if (math.abs(vD - vDis) > step * 9  ) continue;
+
+                int vDI = readFlip.voxsDirectI[vI];
+                resultDirection += ((vDI < 0 ? pos : VoxHelpFunc.WVoxIndexToPos_snapped(vDI, voxHandler._voxWorldReadonly))
+                    - AudioManager.camPos).normalized * (100.0f / vD);
+            }
+        }
+
+        resultDirection.Normalize();
+        return (vDis / 5) * VoxGlobalSettings.voxelSizeWorld;
+    }
 
     #region Debug
 
 #if UNITY_EDITOR
     private static readonly List<VoxHelpBurst.CustomVoxelDataB> voxsToDraw = new();
+    private static Vector3 sceneCamPos;
 
     internal static void DebugDrawGizmos()
     {
@@ -359,10 +468,11 @@ internal class AudioTracer
         var view = SceneView.currentDrawingSceneView;
         if (view == null) return;
         Vector3 sceneCam = view.camera.ViewportToWorldPoint(view.cameraViewport.center);
+        sceneCamPos = sceneCam;
 
         NativeList<VoxHelpBurst.CustomVoxelDataB> solidVoxsI = new(1080, Allocator.Temp);
         VoxHelpBurst.GetSolidVoxColorsInRadius(ref sceneCam, maxDis, maxHearRadiusVox, voxHandler._voxGridReadonly
-            , readFlip.voxsDis, voxHandler._voxWorldReadonly, ref solidVoxsI);
+            , readFlip.voxsDis, readFlip.voxsDirectI, voxHandler._voxWorldReadonly, ref solidVoxsI);
 
         foreach (var vData in solidVoxsI)
         {
