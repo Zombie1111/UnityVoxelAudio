@@ -10,7 +10,6 @@ using zombVoxels;
 using AudioSettings = RaytracedAudio.AudioSettings;
 using Unity.Mathematics;
 
-
 #if UNITY_EDITOR
 using UnityEditor;
 #endif

@@ -130,7 +130,7 @@ namespace RaytracedAudio
         /// <summary>
         /// Worldspace occluded distance from listener to the source
         /// </summary>
-        internal float distance = 0.0f;
+        internal float distance = -1.0f;
         /// <summary>
         /// Worldspace occluded distance from listener to the source
         /// </summary>
@@ -307,6 +307,11 @@ namespace RaytracedAudio
 
         #region Effects
 
+        internal void ResetSource()
+        {
+            distance = -1.0f;
+        }
+
         internal void TickSource(float deltaTime)
         {
             //Is still valid?
@@ -342,25 +347,18 @@ namespace RaytracedAudio
             {
                 float dis = AudioTracer.SampleOcclusionAtPos(position, out Vector3 dir);
                 float ocSpeed = AudioSettings._occlusionLerpSpeed / (1.0f + (dis / AudioTracer.maxHearRadiusMeter));
-                distance = Mathf.Lerp(distance, dis, AudioSettings._occlusionLerpSpeed * deltaTime);
-                direction = Vector3.Slerp(direction, dir, AudioSettings._occlusionLerpSpeed * deltaTime);
 
-                //int voxI = VoxHelpFunc.PosToWVoxIndex_snapped(sceneCamPos, voxHandler._voxWorldReadonly, out _, 1);
-                //if (readFlip.voxsDis[voxI] < 10000)
-                //{
-                //    voxI = readFlip.voxsDirectI[voxI];
-                //
-                //    Gizmos.color = Color.blue;
-                //    if (voxI < 0) Gizmos.DrawCube(readFlip.camPos, voxSize);
-                //    else
-                //    {
-                //        Vector3 pos = VoxHelpFunc.WVoxIndexToPos_snapped(voxI, voxHandler._voxWorldReadonly);
-                //        Gizmos.DrawCube(pos, voxSize);
-                //    }
-                //}
+                if (distance < 0.0f)
+                {
+                    distance = dis;
+                    direction = dir;
+                }
+                else
+                {
+                    distance = Mathf.Lerp(distance, dis, AudioSettings._occlusionLerpSpeed * deltaTime);
+                    direction = Vector3.Slerp(direction, dir, AudioSettings._occlusionLerpSpeed * deltaTime);
 
-                //direction = traceInput.resDirection;
-                //distance = traceInput.resDistance;
+                }
 
                 //Bounce brightness (0.0 == di0, de100: 0.5 == di50, de50, 1.0, di100, de0)
                 reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DIFFUSION, Mathf.Lerp(0.0f, 100.0f, traceInput.resSurface.brightness));

@@ -201,6 +201,7 @@ namespace RaytracedAudio
             }
 
             //Get effects inputs
+            ai.ResetSource();
             ai.traceInput = ai.audioEffects.HasTracing() == true ? (ai.traceInput ?? AudioTracer.CreateTraceInput(ai)) : null;
             ai.zoneInput = ai.audioEffects.HasZones() == true ? (ai.zoneInput ?? AudioZones.CreateZoneInput(ai)) : null;
 
