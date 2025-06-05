@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using zombVoxels;
 
 
 namespace RaytracedAudio
@@ -47,6 +48,9 @@ namespace RaytracedAudio
             _voxSnapDistance = voxSnapDistance;
             _occlusionLerpSpeed = occlusionLerpSpeed;
             __globalAudioEffects = globalAudioEffects;
+            _voxComputeDistanceMeter = voxComputeDistance;
+            _voxComputeDistanceVox = Mathf.RoundToInt((voxComputeDistance * 5) / VoxGlobalSettings.voxelSizeWorld);
+            _indirectExtraVoxDistance = indirectExtraVoxDistance;
             busPathToBus.Clear();
 
             foreach (BusConfig bus in buses)
@@ -115,6 +119,11 @@ namespace RaytracedAudio
         internal static int _voxSnapDistance = 3;
         [SerializeField] private float occlusionLerpSpeed = 5.0f;
         internal static float _occlusionLerpSpeed = 5.0f;
+        [SerializeField] private float voxComputeDistance = 35.0f;
+        internal static float _voxComputeDistanceMeter = 35.0f;
+        internal static int _voxComputeDistanceVox = 350;
+        [SerializeField] private ushort indirectExtraVoxDistance = 20;
+        internal static ushort _indirectExtraVoxDistance = 20;
 
 #if UNITY_EDITOR
         [Header("Debug")]

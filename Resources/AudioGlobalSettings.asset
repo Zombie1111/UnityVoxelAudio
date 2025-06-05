@@ -26,4 +26,6 @@ MonoBehaviour:
     m_Bits: 4294967295
   voxSnapDistance: 3
   occlusionLerpSpeed: 8
-  debugMode: 2
+  voxComputeDistance: 35
+  indirectExtraVoxDistance: 20
+  debugMode: 1

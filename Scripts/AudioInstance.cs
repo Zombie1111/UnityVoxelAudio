@@ -346,7 +346,7 @@ namespace RaytracedAudio
             if (traceInput != null)
             {
                 float dis = AudioTracer.SampleOcclusionAtPos(position, out Vector3 dir);
-                float ocSpeed = AudioSettings._occlusionLerpSpeed / (1.0f + (dis / AudioTracer.maxHearRadiusMeter));
+                float ocSpeed = AudioSettings._occlusionLerpSpeed / (1.0f + (dis / AudioSettings._voxComputeDistanceMeter));
 
                 if (distance < 0.0f)
                 {

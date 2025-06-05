@@ -209,6 +209,8 @@ internal class AudioTracer
         o_job.voxsDis = writeFlip.voxsDis;
         o_job.voxsDirectI = writeFlip.voxsDirectI;
         o_job.camVoxI = voxI;
+        o_job.maxHearRadiusVox = (ushort)AudioSettings._voxComputeDistanceVox;
+        o_job.indirectExtraDistance = AudioSettings._indirectExtraVoxDistance;
 
         o_jobIsActive = true;
         o_handle = o_job.Schedule();
@@ -228,8 +230,8 @@ internal class AudioTracer
         o_jobIsActive = false;
     }
 
-    internal const float maxHearRadiusMeter = 35.0f;
-    private const ushort maxHearRadiusVox = 350;//maxHearRadiusVox = maxHearRadiusMeter * 5 / VoxGlobalSettings.voxelSizeWorld (350/35m takes 9ms)
+    //internal const float maxHearRadiusMeter = 35.0f;
+    //private const ushort maxHearRadiusVox = 350;//maxHearRadiusVox = maxHearRadiusMeter * 5 / VoxGlobalSettings.voxelSizeWorld (350/35m takes 9ms)
     private const int voxMargin = 1;
 
     [BurstCompile]
@@ -243,6 +245,8 @@ internal class AudioTracer
         [NativeDisableUnsafePtrRestriction] internal int* queueVoxI;
 
         internal int camVoxI;
+        internal ushort maxHearRadiusVox;
+        internal ushort indirectExtraDistance;
 
         public void Execute()
         {
@@ -320,6 +324,7 @@ internal class AudioTracer
                     if (airDis - activeDis < 0)
                     {
                         //Is indirect
+                        activeDis += indirectExtraDistance;
                         directVoxI = voxI;
                         //activeDis = 10000;
                     }
@@ -374,13 +379,13 @@ internal class AudioTracer
         float vDis = readFlip.voxsDis[voxI];
         int[] vOffsets = voxHandler._voxWorldReadonly.GetVoxDirs();
 
-        if (vDis > maxHearRadiusVox)
+        if (vDis > AudioSettings._voxComputeDistanceVox)
         {
             for (int i = 1; i < vOffsets.Length; i++)
             {
                 int vI = voxI + vOffsets[i];
-                float vD = readFlip.voxsDis[voxI];
-                if (vD > maxHearRadiusVox) continue;
+                float vD = readFlip.voxsDis[vI];
+                if (vD > AudioSettings._voxComputeDistanceVox) continue;
 
                 vDis = vD;
                 voxI = vI;
@@ -388,10 +393,10 @@ internal class AudioTracer
             }
 
             //Unhearable?
-            if (vDis > maxHearRadiusVox)
+            if (vDis > AudioSettings._voxComputeDistanceVox)
             {
                 resultDirection = (pos - AudioManager.camPos).normalized;
-                return maxHearRadiusMeter;
+                return AudioSettings._voxComputeDistanceMeter;
             }
         }
 
@@ -470,7 +475,7 @@ internal class AudioTracer
         sceneCamPos = sceneCam;
 
         NativeList<VoxHelpBurst.CustomVoxelDataB> solidVoxsI = new(1080, Allocator.Temp);
-        VoxHelpBurst.GetSolidVoxColorsInRadius(ref sceneCam, maxDis, maxHearRadiusVox, voxHandler._voxGridReadonly
+        VoxHelpBurst.GetSolidVoxColorsInRadius(ref sceneCam, maxDis, AudioSettings._voxComputeDistanceVox, voxHandler._voxGridReadonly
             , readFlip.voxsDis, readFlip.voxsDirectI, voxHandler._voxWorldReadonly, ref solidVoxsI);
 
         foreach (var vData in solidVoxsI)
