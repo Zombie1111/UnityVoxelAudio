@@ -50,7 +50,7 @@ namespace RaytracedAudio
             __globalAudioEffects = globalAudioEffects;
             _voxComputeDistanceMeter = voxComputeDistance;
             _voxComputeDistanceVox = Mathf.RoundToInt((voxComputeDistance * 5) / VoxGlobalSettings.voxelSizeWorld);
-            _indirectExtraVoxDistance = indirectExtraVoxDistance;
+            _indirectExtraDistanceVox = (ushort)Mathf.RoundToInt((indirectExtraDistanceMeter * 5) / VoxGlobalSettings.voxelSizeWorld);
             busPathToBus.Clear();
 
             foreach (BusConfig bus in buses)
@@ -122,8 +122,8 @@ namespace RaytracedAudio
         [SerializeField] private float voxComputeDistance = 35.0f;
         internal static float _voxComputeDistanceMeter = 35.0f;
         internal static int _voxComputeDistanceVox = 350;
-        [SerializeField] private ushort indirectExtraVoxDistance = 20;
-        internal static ushort _indirectExtraVoxDistance = 20;
+        [SerializeField] private ushort indirectExtraDistanceMeter = 20;
+        internal static ushort _indirectExtraDistanceVox = 20;
 
 #if UNITY_EDITOR
         [Header("Debug")]

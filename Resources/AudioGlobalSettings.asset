@@ -27,5 +27,5 @@ MonoBehaviour:
   voxSnapDistance: 3
   occlusionLerpSpeed: 8
   voxComputeDistance: 35
-  indirectExtraVoxDistance: 20
-  debugMode: 1
+  indirectExtraDistanceMeter: 3
+  debugMode: 2

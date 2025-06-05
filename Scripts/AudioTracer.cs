@@ -123,9 +123,13 @@ internal class AudioTracer
         voxelSystemIsValid = false;
 
         OnGlobalReadAccessStop();
+        TryCompleteOcclusionJob(true);
         flipA.Dispose(); flipA = null;
         flipB.Dispose(); flipB = null;
+        o_job.isCompleted.Dispose();
+        o_job.voxWorld.Dispose();
         UnsafeUtility.Free(o_job.queueVoxI, Allocator.Persistent);
+        UnsafeUtility.Free(c_job.voxsTypeDestination, Allocator.Persistent);
     }
 
     private static unsafe void OnSetupVoxelSystem()
@@ -141,6 +145,14 @@ internal class AudioTracer
         {
             queueVoxI = (int*)UnsafeUtility.Malloc(_searchQueueSize * UnsafeUtility.SizeOf<int>(), UnsafeUtility.AlignOf<int>(), Allocator.Persistent),
             voxsType = voxHandler._voxGridReadonly,
+            voxWorld = new NativeReference<VoxWorld>(voxHandler._voxWorldReadonly, Allocator.Persistent),
+            isCompleted = new NativeReference<bool>(Allocator.Persistent)
+        };
+
+        c_job = new()
+        {
+            voxsTypeSource = voxHandler._voxGridReadonly,
+            voxsTypeDestination = (byte*)UnsafeUtility.Malloc(voxHandler._voxWorldReadonly.vCountXYZ * UnsafeUtility.SizeOf<byte>(), UnsafeUtility.AlignOf<byte>(), Allocator.Persistent),
             voxWorld = voxHandler._voxWorldNativeReadonly,
         };
 
@@ -153,8 +165,11 @@ internal class AudioTracer
 
     private const int _searchQueueSize = 524288;
     private static ComputeOcclusion_job o_job;
+    private static CopyVoxsType_job c_job;
     private static JobHandle o_handle;
+    private static JobHandle c_handle;
     private static bool o_jobIsActive = false;
+    private static bool c_jobIsActive = false;
 
     private static FlipFlop flipA = null;
     private static FlipFlop flipB = null;
@@ -195,6 +210,7 @@ internal class AudioTracer
 
     private static unsafe void OnGlobalReadAccessStart()
     {
+        if (TryCompleteOcclusionJob(false) == false) return;
         if (o_jobIsActive == true || voxelSystemIsValid == false) return;
 
         //Get empty pos
@@ -210,24 +226,42 @@ internal class AudioTracer
         o_job.voxsDirectI = writeFlip.voxsDirectI;
         o_job.camVoxI = voxI;
         o_job.maxHearRadiusVox = (ushort)AudioSettings._voxComputeDistanceVox;
-        o_job.indirectExtraDistance = AudioSettings._indirectExtraVoxDistance;
+        o_job.indirectExtraDistanceVox = AudioSettings._indirectExtraDistanceVox;
+        o_job.isCompleted.Value = false;
 
+        Debug.Log("Start");
         o_jobIsActive = true;
-        o_handle = o_job.Schedule();
+        c_jobIsActive = true;
+        c_handle = c_job.Schedule();
+        o_handle = o_job.Schedule(c_handle);
+
         //VoxHelpFunc.Debug_toggleTimer();
         //OnGlobalReadAccessStop();
+        //TryCompleteOcclusionJob(true);
         //VoxHelpFunc.Debug_toggleTimer();
     }
 
-    private static void OnGlobalReadAccessStop()
+    private static bool TryCompleteOcclusionJob(bool forceComplete)
     {
-        if (o_jobIsActive == false) return;
-
+        if (c_jobIsActive == true) Debug.Log("Expecting voxsType copy job to always complete first!");
+        if (o_jobIsActive == false) return true;
+        if (forceComplete == false && o_job.isCompleted.Value == false) return false;
+        Debug.Log("End oc");
         readFlip = writeFlip;
         writeFlip = GetNextFlip();//We wanna flip at stop so other stuff can safety get read at OnGlobalReadAccessStart without worrying about execution order
 
         o_handle.Complete();
         o_jobIsActive = false;
+        return true;
+    }
+
+    private static void OnGlobalReadAccessStop()
+    {
+        if (c_jobIsActive == false) return;
+        Debug.Log("End copy");
+        c_handle.Complete();
+        c_jobIsActive = false;
+
     }
 
     //internal const float maxHearRadiusMeter = 35.0f;
@@ -235,10 +269,24 @@ internal class AudioTracer
     private const int voxMargin = 1;
 
     [BurstCompile]
+    private unsafe struct CopyVoxsType_job : IJob
+    {
+        [NativeDisableUnsafePtrRestriction] internal byte* voxsTypeSource;
+        [NativeDisableUnsafePtrRestriction] internal byte* voxsTypeDestination;
+        internal NativeReference<VoxWorld>.ReadOnly voxWorld;
+
+        public void Execute()
+        {
+            UnsafeUtility.MemCpy(voxsTypeDestination, voxsTypeSource, voxWorld.Value.vCountXYZ * UnsafeUtility.SizeOf<byte>());
+        }
+    }
+
+    [BurstCompile]
     private unsafe struct ComputeOcclusion_job : IJob
     {
         [NativeDisableUnsafePtrRestriction] internal byte* voxsType;
-        internal NativeReference<VoxWorld>.ReadOnly voxWorld;
+        internal NativeReference<VoxWorld> voxWorld;
+        [NativeDisableContainerSafetyRestriction] internal NativeReference<bool> isCompleted;
 
         [NativeDisableUnsafePtrRestriction] internal ushort* voxsDis;
         [NativeDisableUnsafePtrRestriction] internal int* voxsDirectI;
@@ -246,7 +294,7 @@ internal class AudioTracer
 
         internal int camVoxI;
         internal ushort maxHearRadiusVox;
-        internal ushort indirectExtraDistance;
+        internal ushort indirectExtraDistanceVox;
 
         public void Execute()
         {
@@ -324,7 +372,7 @@ internal class AudioTracer
                     if (airDis - activeDis < 0)
                     {
                         //Is indirect
-                        activeDis += indirectExtraDistance;
+                        activeDis += indirectExtraDistanceVox;
                         directVoxI = voxI;
                         //activeDis = 10000;
                     }
@@ -365,6 +413,7 @@ internal class AudioTracer
 
             UnsafeUtility.Free(voxDirs, Allocator.Temp);
             UnsafeUtility.Free(voxDirsDis, Allocator.Temp);
+            isCompleted.Value = true;//Not 100% safe
         }
     }
     #endregion Compute voxels
@@ -375,7 +424,7 @@ internal class AudioTracer
     public static unsafe float SampleOcclusionAtPos(Vector3 pos, out Vector3 resultDirection)
     {
         //Get source vox
-        int voxI = VoxHelpFunc.PosToWVoxIndex_snapped(pos, voxHandler._voxWorldReadonly, out _, 1);
+        int voxI = VoxHelpFunc.PosToWVoxIndex_snapped(pos, voxHandler._voxWorldReadonly, out Vector3 snappedPos, 1);
         float vDis = readFlip.voxsDis[voxI];
         int[] vOffsets = voxHandler._voxWorldReadonly.GetVoxDirs();
 
@@ -430,7 +479,7 @@ internal class AudioTracer
         }
 
         resultDirection.Normalize();
-        return (vDis / 5) * VoxGlobalSettings.voxelSizeWorld;
+        return ((vDis / 5) * VoxGlobalSettings.voxelSizeWorld) + Vector3.Distance(snappedPos, pos);
     }
 
     #region Debug
