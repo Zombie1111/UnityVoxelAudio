@@ -9,6 +9,8 @@ using UnityEngine.SceneManagement;
 using zombVoxels;
 using AudioSettings = RaytracedAudio.AudioSettings;
 using Unity.Mathematics;
+using UnityEditor.Callbacks;
+
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -185,7 +187,14 @@ internal class AudioTracer
     {
         internal readonly ushort* voxsDis;
         internal readonly int* voxsDirectI;
+        /// <summary>
+        /// Cam pos (snapped to voxel at compute time)
+        /// </summary>
         internal Vector3 camPos;
+        /// <summary>
+        /// If > 0.0f, cam is outside global voxel grid and is distance to global voxel grid
+        /// </summary>
+        internal float camExtraDis;
 
         internal FlipFlop(int voxCountXYZ)
         {
@@ -222,6 +231,7 @@ internal class AudioTracer
         }
 
         writeFlip.camPos = voxPos;
+        writeFlip.camExtraDis = Vector3.Distance(voxPos, AudioManager.camPos) - VoxGlobalSettings.voxelSizeWorld;
         o_job.voxsDis = writeFlip.voxsDis;
         o_job.voxsDirectI = writeFlip.voxsDirectI;
         o_job.camVoxI = voxI;
@@ -229,7 +239,6 @@ internal class AudioTracer
         o_job.indirectExtraDistanceVox = AudioSettings._indirectExtraDistanceVox;
         o_job.isCompleted.Value = false;
 
-        Debug.Log("Start");
         o_jobIsActive = true;
         c_jobIsActive = true;
         c_handle = c_job.Schedule();
@@ -246,7 +255,7 @@ internal class AudioTracer
         if (c_jobIsActive == true) Debug.Log("Expecting voxsType copy job to always complete first!");
         if (o_jobIsActive == false) return true;
         if (forceComplete == false && o_job.isCompleted.Value == false) return false;
-        Debug.Log("End oc");
+
         readFlip = writeFlip;
         writeFlip = GetNextFlip();//We wanna flip at stop so other stuff can safety get read at OnGlobalReadAccessStart without worrying about execution order
 
@@ -258,7 +267,7 @@ internal class AudioTracer
     private static void OnGlobalReadAccessStop()
     {
         if (c_jobIsActive == false) return;
-        Debug.Log("End copy");
+
         c_handle.Complete();
         c_jobIsActive = false;
 
@@ -311,7 +320,6 @@ internal class AudioTracer
             int vCountYZ = vWorld.vCountYZ;
             int vCountZ = vWorld.vCountZ;
 
-
             int camX = camVoxI / vCountYZ;
             int remI = camVoxI % vCountYZ;
             int camY = remI / vCountZ;
@@ -321,13 +329,16 @@ internal class AudioTracer
             queueVoxI[queueTail] = camVoxI;
             queueTail = (queueTail + 1) % _searchQueueSize;
             queueCount++;
+            int totLoopCount = 0;
 
 #if UNITY_EDITOR
             bool hasLogged = false;
 #endif
 
-            while (queueCount > 0)//Can probably be optimized further by using a bucket/priority order
+            while (queueCount > 0)//Can probably be optimized further by using a bucket Dial’s/priority order
             {
+                totLoopCount++;
+
                 //Dequeue
                 int voxI = queueVoxI[queueHead];
                 queueHead = (queueHead + 1) % _searchQueueSize;
@@ -382,11 +393,12 @@ internal class AudioTracer
                 for (int i = 0; i < 26; i++)
                 {
                     int nextVoxI = voxI + voxDirs[i];
-                    ushort nextDis = (ushort)(activeDis + voxDirsDis[i]);
+                    if (voxsDis[nextVoxI] < 65000) continue;//Old value is better, why does comparing against constant value give same result as nextDis, comparing with constant should be wrong
                     //if (nextVoxI < 0 || nextVoxI >= vWorld.vCountXYZ) continue;
-                    if (voxsDis[nextVoxI] <= nextDis) continue;//Old value is better
+                    //if (voxsDis[nextVoxI] <= nextDis) continue;//Old value is better
 
                     voxsDirectI[nextVoxI] = directVoxI;
+                    ushort nextDis = (ushort)(activeDis + voxDirsDis[i]);
                     voxsDis[nextVoxI] = nextDis;
                     if (nextDis > maxHearRadiusVox) continue;
 
@@ -421,10 +433,18 @@ internal class AudioTracer
     private const int sampleStepSize = 6;
     private const int sampleStepCount = 1;
 
-    public static unsafe float SampleOcclusionAtPos(Vector3 pos, out Vector3 resultDirection)
+    public static unsafe float SampleOcclusionAtPos(Vector3 pos, out Vector3 resultDirection, out float occludedAmount)
     {
         //Get source vox
         int voxI = VoxHelpFunc.PosToWVoxIndex_snapped(pos, voxHandler._voxWorldReadonly, out Vector3 snappedPos, 1);
+        if (readFlip.camExtraDis > 0.0f && snappedPos != pos)
+        {
+            //Both sample pos and cam is outside grid
+            resultDirection = (pos - AudioManager.camPos).normalized;
+            occludedAmount = 0.0f;
+            return Vector3.Distance(pos, AudioManager.camPos);
+        }
+
         float vDis = readFlip.voxsDis[voxI];
         int[] vOffsets = voxHandler._voxWorldReadonly.GetVoxDirs();
 
@@ -445,19 +465,15 @@ internal class AudioTracer
             if (vDis > AudioSettings._voxComputeDistanceVox)
             {
                 resultDirection = (pos - AudioManager.camPos).normalized;
+                occludedAmount = 0.0f;
                 return AudioSettings._voxComputeDistanceMeter;
             }
         }
 
         //Direct?
         int vDirectI = readFlip.voxsDirectI[voxI];
-        //if (vDirectI < 0)
-        //{
-        //    resultDirection = (pos - AudioManager.camPos).normalized;
-        //    return (vDis / 5) * VoxGlobalSettings.voxelSizeWorld;;
-        //}
 
-        //It is indirect, sample multiple points for smoother direction
+        //Sample multiple points for smoother direction
         resultDirection = ((vDirectI < 0 ? pos : VoxHelpFunc.WVoxIndexToPos_snapped(vDirectI, voxHandler._voxWorldReadonly))
             - AudioManager.camPos).normalized * (100.0f / vDis);
         int maxStepValue = sampleStepCount * sampleStepSize;
@@ -479,7 +495,12 @@ internal class AudioTracer
         }
 
         resultDirection.Normalize();
-        return ((vDis / 5) * VoxGlobalSettings.voxelSizeWorld) + Vector3.Distance(snappedPos, pos);
+        float airDis = Vector3.Distance(pos, AudioManager.camPos);
+        float oDis = ((vDis / 5) * VoxGlobalSettings.voxelSizeWorld) + Vector3.Distance(snappedPos, pos) + readFlip.camExtraDis;
+        Debug.Log(airDis + " " + oDis);
+        occludedAmount = Mathf.Clamp01((oDis - (airDis + AudioSettings._occludedFilterDisM)) / AudioSettings._occludedFilterDisM);
+
+        return oDis;
     }
 
     #region Debug

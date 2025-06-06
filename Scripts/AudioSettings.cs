@@ -48,9 +48,14 @@ namespace RaytracedAudio
             _voxSnapDistance = voxSnapDistance;
             _occlusionLerpSpeed = occlusionLerpSpeed;
             __globalAudioEffects = globalAudioEffects;
+
+            //Occlusion
             _voxComputeDistanceMeter = voxComputeDistance;
             _voxComputeDistanceVox = Mathf.RoundToInt((voxComputeDistance * 5) / VoxGlobalSettings.voxelSizeWorld);
             _indirectExtraDistanceVox = (ushort)Mathf.RoundToInt((indirectExtraDistanceMeter * 5) / VoxGlobalSettings.voxelSizeWorld);
+            _occludedFilterDisM = occludedFilterDisM;
+            _fullyOccludedLowPassFreq = fullyOccludedLowPassFreq;
+
             busPathToBus.Clear();
 
             foreach (BusConfig bus in buses)
@@ -124,6 +129,10 @@ namespace RaytracedAudio
         internal static int _voxComputeDistanceVox = 350;
         [SerializeField] private ushort indirectExtraDistanceMeter = 20;
         internal static ushort _indirectExtraDistanceVox = 20;
+        [SerializeField] private float occludedFilterDisM = 20.0f;
+        internal static float _occludedFilterDisM = 20.0f;
+        [SerializeField] private float fullyOccludedLowPassFreq = 700.0f;
+        internal static float _fullyOccludedLowPassFreq = 700.0f;
 
 #if UNITY_EDITOR
         [Header("Debug")]

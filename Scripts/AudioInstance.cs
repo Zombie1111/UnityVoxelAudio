@@ -345,7 +345,8 @@ namespace RaytracedAudio
             //Update effects
             if (traceInput != null)
             {
-                float dis = AudioTracer.SampleOcclusionAtPos(position, out Vector3 dir);
+                float dis = AudioTracer.SampleOcclusionAtPos(position, out Vector3 dir, out float ocAmount);
+                ocAmount = 1.0f - ocAmount;
                 float ocSpeed = AudioSettings._occlusionLerpSpeed / (1.0f + (dis / AudioSettings._voxComputeDistanceMeter));
 
                 if (distance < 0.0f)
@@ -375,7 +376,9 @@ namespace RaytracedAudio
                 reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DECAYTIME, Mathf.Exp(0.0981f * wetL));
                 //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DECAYTIME, 2.0f * Mathf.Exp(0.0906f * (wetL + 80.00001f)));
 
-                lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, -2409 * Mathf.Log(traceInput.resSurface.passthrough) - 217.15f);
+                //lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, -2409 * Mathf.Log(traceInput.resSurface.passthrough) - 217.15f);
+                lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, Mathf.Lerp(AudioSettings._fullyOccludedLowPassFreq, 17000.0f, ocAmount * ocAmount));
+                Debug.Log(ocAmount * ocAmount);
             }
             else
             {

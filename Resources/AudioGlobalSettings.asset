@@ -19,13 +19,15 @@ MonoBehaviour:
     isPausable: 1
   defaultAudioConfigAsset: {fileID: 11400000, guid: a02b7133d3544ab44a4bbc6201852588, type: 2}
   globalAudioEffects: 0
-  minMaxDistanceFactor: 1.5
+  minMaxDistanceFactor: 3.5
   stopAudioOnSceneLoad: 1
   mask:
     serializedVersion: 2
     m_Bits: 4294967295
   voxSnapDistance: 3
   occlusionLerpSpeed: 8
-  voxComputeDistance: 35
+  voxComputeDistance: 70
   indirectExtraDistanceMeter: 3
+  occludedFilterDisM: 10
+  fullyOccludedLowPassFreq: 600
   debugMode: 2
