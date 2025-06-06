@@ -18,7 +18,7 @@ namespace RaytracedAudio
         {
             if (Application.isPlaying == true)
             {
-                AudioTracer.DebugDrawGizmos();
+                AudioOcclusion.DebugDrawGizmos();
                 return;
             }
 
@@ -88,14 +88,16 @@ namespace RaytracedAudio
             return true;
         }
 
-        private void Init()
+        internal void Init()
         {
-            if (isInitilized == true) return; 
+            if (isInitilized == true) return;
 
             SceneManager.sceneUnloaded += OnSceneUnLoaded;
-            AudioSettings._instance.Init();//Setup 
+            AudioSurface.Allocate();//Accessed in AudioSettings so must be initlized before it
+            AudioSettings._instance.Init();//Called with true in AudioSurface.Allocate() 
             SetListener();
-            AudioTracer.Init();
+            AudioOcclusion.Init();
+
             isInitilized = true;
         }
 
@@ -107,7 +109,6 @@ namespace RaytracedAudio
 
         private void OnDestroy()
         {
-            AudioTracer.Destroy();
             Destroy();
         }
 
@@ -116,6 +117,8 @@ namespace RaytracedAudio
             if (isInitilized == false) return;
             isInitilized = false;
 
+            AudioSurface.Dispose();
+            AudioOcclusion.Destroy();
             SceneManager.sceneUnloaded -= OnSceneUnLoaded;
             AudioInstance[] allAIs = AudioManager._instance.GetAllAudioInstancesSafe();
 
@@ -202,7 +205,7 @@ namespace RaytracedAudio
 
             //Get effects inputs
             ai.ResetSource();
-            ai.traceInput = ai.audioEffects.HasTracing() == true ? (ai.traceInput ?? AudioTracer.CreateTraceInput(ai)) : null;
+            ai.hasOcclusion = ai.audioEffects.HasTracing();
             ai.zoneInput = ai.audioEffects.HasZones() == true ? (ai.zoneInput ?? AudioZones.CreateZoneInput(ai)) : null;
 
             //Register audio instance
@@ -411,7 +414,6 @@ namespace RaytracedAudio
                 if (ai.id > 0) InActivate();
                 if (ai.GetStateSafe() == AudioInstance.State.destroyed) return;
 
-                AudioTracer.DestroyTraceInput(ai.traceInput);
                 AudioZones.DestroyZoneInput(ai.zoneInput);
 
                 ai.SetStateSafe(AudioInstance.State.destroyed);//Must be called first to avoid potential stack overflow

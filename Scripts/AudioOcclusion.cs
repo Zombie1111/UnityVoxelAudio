@@ -9,53 +9,13 @@ using UnityEngine.SceneManagement;
 using zombVoxels;
 using AudioSettings = RaytracedAudio.AudioSettings;
 using Unity.Mathematics;
-using UnityEditor.Callbacks;
-
 
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
 
-internal class AudioTracer
+internal class AudioOcclusion
 {
-    internal class TraceInput
-    {
-        internal AudioInstance ai = null;
-
-        internal bool resultIsReady = false;
-        internal Vector3 resDirection;
-        internal float resDistance;
-
-        internal Surface resSurface;
-        internal float resRoomSize;
-    }
-
-    internal static TraceInput CreateTraceInput(AudioInstance ai)
-    {
-        return new()
-        {
-            ai = ai,
-            resultIsReady = true,//Temp for now
-        };
-    }
-
-    internal static void DestroyTraceInput(TraceInput traceInput)
-    {
-
-    }
-
-    [System.Serializable]
-    internal struct Surface
-    {
-        public float reflectness;
-        public float metallicness;
-        public float brightness;
-        public float tail;
-
-        [Tooltip("How affected the audio is by going through a surface (This should be 0.0f for all surfaces except a few like doors)")]
-        public float passthrough;
-    }
-
     #region Main
     private static bool isInitialized = false;
 
@@ -118,11 +78,13 @@ internal class AudioTracer
 
 
     private static bool voxelSystemIsValid = false;
+    internal static bool hasComputedOcclusion = false;
 
     private static unsafe void OnClearVoxelSystem()
     {
         if (voxelSystemIsValid == false) return;
         voxelSystemIsValid = false;
+        hasComputedOcclusion = false;
 
         OnGlobalReadAccessStop();
         TryCompleteOcclusionJob(true);
@@ -158,6 +120,7 @@ internal class AudioTracer
             voxWorld = voxHandler._voxWorldNativeReadonly,
         };
 
+        hasComputedOcclusion = false;
         voxelSystemIsValid = true;
     }
 
@@ -261,6 +224,7 @@ internal class AudioTracer
 
         o_handle.Complete();
         o_jobIsActive = false;
+        hasComputedOcclusion = true;
         return true;
     }
 
@@ -497,7 +461,6 @@ internal class AudioTracer
         resultDirection.Normalize();
         float airDis = Vector3.Distance(pos, AudioManager.camPos);
         float oDis = ((vDis / 5) * VoxGlobalSettings.voxelSizeWorld) + Vector3.Distance(snappedPos, pos) + readFlip.camExtraDis;
-        Debug.Log(airDis + " " + oDis);
         occludedAmount = Mathf.Clamp01((oDis - (airDis + AudioSettings._occludedFilterDisM)) / AudioSettings._occludedFilterDisM);
 
         return oDis;

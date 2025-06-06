@@ -61,7 +61,7 @@ namespace RaytracedAudio
         internal volatile int id = -1;
         internal EventInstance clip;
         internal EVENT_CALLBACK callback;
-        internal AudioTracer.TraceInput traceInput = null;
+        internal bool hasOcclusion = true;
         internal AudioZones.ZoneInput zoneInput = null;
         internal bool isPersistent = true;
 
@@ -324,7 +324,7 @@ namespace RaytracedAudio
             //Update state
             lock (selfLock)
             {
-                if (state == State.pendingPlay && (traceInput == null || traceInput.resultIsReady == true)
+                if (state == State.pendingPlay && (hasOcclusion == false || AudioOcclusion.hasComputedOcclusion == true)
                     && (zoneInput == null || zoneInput.resultIsReady == true))
                 {
                     clip.start();
@@ -343,9 +343,9 @@ namespace RaytracedAudio
             }
 
             //Update effects
-            if (traceInput != null)
+            if (hasOcclusion == true)
             {
-                float dis = AudioTracer.SampleOcclusionAtPos(position, out Vector3 dir, out float ocAmount);
+                float dis = AudioOcclusion.SampleOcclusionAtPos(position, out Vector3 dir, out float ocAmount);
                 ocAmount = 1.0f - ocAmount;
                 float ocSpeed = AudioSettings._occlusionLerpSpeed / (1.0f + (dis / AudioSettings._voxComputeDistanceMeter));
 
@@ -361,24 +361,23 @@ namespace RaytracedAudio
 
                 }
 
-                //Bounce brightness (0.0 == di0, de100: 0.5 == di50, de50, 1.0, di100, de0)
-                reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DIFFUSION, Mathf.Lerp(0.0f, 100.0f, traceInput.resSurface.brightness));
-                reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DENSITY, Mathf.Lerp(100.0f, 0.0f, traceInput.resSurface.brightness));
-
-                reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.HIGHCUT, Mathf.Lerp(20.0f, 4000.0f, traceInput.resSurface.metallicness));
-
-                reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.EARLYLATEMIX, Mathf.Lerp(0.0f, 66.0f, traceInput.resSurface.tail * 2.0f));
-                reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.HFDECAYRATIO, Mathf.Lerp(0.0f, 100.0f, (traceInput.resSurface.tail - 0.5f) * 2.0f));
-
-                //float wetL = Mathf.Lerp(-80.0f, 20.0f, traceData.resSurface.reflectness);
-                //float wetL = Mathf.Lerp(-80.0f, 20.0f, traceData.resSurface.reflectness);
-                float wetL = 10.377f * Mathf.Log(Mathf.Clamp01(traceInput.resSurface.reflectness)) + 95.029f;
-                reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DECAYTIME, Mathf.Exp(0.0981f * wetL));
-                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DECAYTIME, 2.0f * Mathf.Exp(0.0906f * (wetL + 80.00001f)));
+                ////Bounce brightness (0.0 == di0, de100: 0.5 == di50, de50, 1.0, di100, de0)
+                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DIFFUSION, Mathf.Lerp(0.0f, 100.0f, traceInput.resSurface.brightness));
+                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DENSITY, Mathf.Lerp(100.0f, 0.0f, traceInput.resSurface.brightness));
+                //
+                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.HIGHCUT, Mathf.Lerp(20.0f, 4000.0f, traceInput.resSurface.metallicness));
+                //
+                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.EARLYLATEMIX, Mathf.Lerp(0.0f, 66.0f, traceInput.resSurface.tail * 2.0f));
+                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.HFDECAYRATIO, Mathf.Lerp(0.0f, 100.0f, (traceInput.resSurface.tail - 0.5f) * 2.0f));
+                //
+                ////float wetL = Mathf.Lerp(-80.0f, 20.0f, traceData.resSurface.reflectness);
+                ////float wetL = Mathf.Lerp(-80.0f, 20.0f, traceData.resSurface.reflectness);
+                //float wetL = 10.377f * Mathf.Log(Mathf.Clamp01(traceInput.resSurface.reflectness)) + 95.029f;
+                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DECAYTIME, Mathf.Exp(0.0981f * wetL));
+                ////reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DECAYTIME, 2.0f * Mathf.Exp(0.0906f * (wetL + 80.00001f)));
 
                 //lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, -2409 * Mathf.Log(traceInput.resSurface.passthrough) - 217.15f);
                 lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, Mathf.Lerp(AudioSettings._fullyOccludedLowPassFreq, 17000.0f, ocAmount * ocAmount));
-                Debug.Log(ocAmount * ocAmount);
             }
             else
             {

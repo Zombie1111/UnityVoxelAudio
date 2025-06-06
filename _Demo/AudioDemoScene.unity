@@ -345,6 +345,7 @@ GameObject:
   - component: {fileID: 532719934}
   - component: {fileID: 532719933}
   - component: {fileID: 532719932}
+  - component: {fileID: 532719936}
   m_Layer: 0
   m_Name: Cube
   m_TagString: Untagged
@@ -440,6 +441,25 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &532719936
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 532719931}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0291b42cc013c2542b8f540882f32fc0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  buildOnStart: 1
+  voxelType: 200
+  voxelColliderOverwrite: {fileID: 0}
+  dontVoxelize: 0
+  includeInative: 0
+  includeTriggers: 0
+  voxCols: []
 --- !u!1 &593327494
 GameObject:
   m_ObjectHideFlags: 0
@@ -1856,12 +1876,9 @@ MonoBehaviour:
   buildOnStart: 1
   voxelType: 200
   voxelColliderOverwrite: {fileID: 0}
-  affectSelf: 1
-  affectChildren: 1
+  dontVoxelize: 0
   includeInative: 0
   includeTriggers: 0
-  ignoreSelf: 0
-  ignoreChildren: 0
   voxCols: []
 --- !u!1 &1629727810
 GameObject:

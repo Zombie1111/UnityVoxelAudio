@@ -1,4 +1,4 @@
-#if UNITY_EDITOR
+﻿#if UNITY_EDITOR
 using UnityEditor;
 using UnityEngine;
 using System.Collections.Generic;
@@ -8,6 +8,7 @@ using System;
 using System.IO;
 using RaytracedAudio;
 using AudioSettings = RaytracedAudio.AudioSettings;
+using zombVoxels;
 
 namespace RaytracedAudioEditor
 {
@@ -16,6 +17,7 @@ namespace RaytracedAudioEditor
     {
         private FMOD.Studio.System fmodSystem;
         private readonly HashSet<string> allBusPaths = new();
+        private bool showDefaultSurfaces = true;
 
         private void Awake()
         {
@@ -67,12 +69,55 @@ namespace RaytracedAudioEditor
 
         public override void OnInspectorGUI()
         {
-            //Draw the default inspector
-            DrawDefaultInspector();
+            serializedObject.Update();
 
             //Get reference to the target object
             AudioSettings audioSettings = (AudioSettings)target;
-            
+
+            //Set default surfaces
+            Array surfTypes = Enum.GetValues(typeof(AudioSurface.SurfaceType));
+            if (audioSettings.defaultAudioSurfaces == null || audioSettings.defaultAudioSurfaces.Length == 0)
+                audioSettings.defaultAudioSurfaces = AudioSurface.defualtInitSurfaces;
+            Array.Resize(ref audioSettings.defaultAudioSurfaces, surfTypes.Length);
+
+            int i = 0;
+            foreach (var surfT in surfTypes)
+            {
+                if (audioSettings.defaultAudioSurfaces[i] == null) audioSettings.defaultAudioSurfaces[i] = new();
+                audioSettings.defaultAudioSurfaces[i].type = (AudioSurface.SurfaceType)surfT;
+                i++;
+            }
+
+            var sp_DefaultAudioSurfaces = serializedObject.FindProperty("defaultAudioSurfaces");
+            EditorGUI.indentLevel++;
+
+            showDefaultSurfaces = EditorGUILayout.Foldout(showDefaultSurfaces, "Default Audio Surfaces", true);
+
+            if (showDefaultSurfaces)
+            {
+                EditorGUI.indentLevel++;
+
+                for (i = 0; i < sp_DefaultAudioSurfaces.arraySize; i++)
+                {
+                    SerializedProperty elementProp = sp_DefaultAudioSurfaces.GetArrayElementAtIndex(i);
+                    SerializedProperty typeProp = elementProp.FindPropertyRelative("type");
+
+                    AudioSurface.SurfaceType surfTypeEnum = (AudioSurface.SurfaceType)typeProp.enumValueIndex;
+                    string label = surfTypeEnum.ToString();
+
+                    EditorGUILayout.PropertyField(elementProp, new GUIContent(label), true);
+                }
+
+                EditorGUI.indentLevel--;
+            }
+
+            EditorGUI.indentLevel--;
+            EditorGUILayout.Space();
+
+            //Draw the default inspector
+            DrawPropertiesExcluding(serializedObject, "m_Script", "defaultAudioSurfaces");
+            //DrawDefaultInspector();
+
             // Use reflection to get the private 'buses' field
             var busesField = typeof(AudioSettings).GetField("buses", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             if (busesField == null) return;
@@ -125,6 +170,8 @@ namespace RaytracedAudioEditor
                 EditorGUILayout.Space();
                 EditorGUILayout.HelpBox("defaultAudioConfigAsset cannot be null!",MessageType.Error);
             }
+
+            serializedObject.ApplyModifiedProperties();
         }
 
         [MenuItem("Tools/Raytraced Audio/Edit Settings", priority = 0)]

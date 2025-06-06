@@ -1,3 +1,4 @@
+using Codice.CM.Common.Checkin.Partial;
 using System.Collections.Generic;
 using UnityEngine;
 using zombVoxels;
@@ -56,6 +57,25 @@ namespace RaytracedAudio
             _occludedFilterDisM = occludedFilterDisM;
             _fullyOccludedLowPassFreq = fullyOccludedLowPassFreq;
 
+            //Surface
+            _registerAllCollidersOnSceneLoad = registerAllCollidersOnSceneLoad;
+
+            if (Application.isPlaying == true && AudioSurface.isInitilized == true)
+            {
+                if (defaultAudioSurfaces == null || defaultAudioSurfaces.Length == 0)
+                {
+                    defaultAudioSurfaces = AudioSurface.defualtInitSurfaces;
+                    Debug.LogError("defaultAudioSurfaces was invalid, setting to AudioSurface.defualtInitSurfaces");
+                }
+
+                foreach (AudioSurface.SurfaceConfig surf in defaultAudioSurfaces)
+                {
+                    surf.Register();
+                }
+
+                _defualtSurfaceIndex = AudioSurface.GetSurfaceI(defaultSurfaceType);
+            }
+
             busPathToBus.Clear();
 
             foreach (BusConfig bus in buses)
@@ -78,9 +98,9 @@ namespace RaytracedAudio
         /// <summary>
         /// Initilizes the AudioSettings if its not already initlized
         /// </summary>
-        public void Init()//Just used to bus Setup() through _instance
+        public void Init(bool forceInit = false)//Just used to bus Setup() through _instance
         {
-
+            if (forceInit == true) Setup();
         }
 
         [Tooltip("Should contain all your buses")]
@@ -110,8 +130,8 @@ namespace RaytracedAudio
         [SerializeField] private AudioEffects globalAudioEffects = AudioEffects.all;
         internal static AudioEffects __globalAudioEffects = AudioEffects.all;
         [Tooltip("Global factor on how far away spatilized sounds can be heard")]
-        [SerializeField] private float minMaxDistanceFactor = 3.0f;
-        internal static float _minMaxDistanceFactor = 3.0f;
+        [SerializeField] private float minMaxDistanceFactor = 3.5f;
+        internal static float _minMaxDistanceFactor = 3.5f;
         [Tooltip("If true non persistent audio will be stopped on SceneManager.OnSceneUnloaded")]
         [SerializeField] private bool stopAudioOnSceneLoad = true;
         internal static bool _stopAudioOnSceneLoad = true;
@@ -122,17 +142,25 @@ namespace RaytracedAudio
         internal static LayerMask _mask = Physics.AllLayers;
         [SerializeField] private int voxSnapDistance = 3;
         internal static int _voxSnapDistance = 3;
-        [SerializeField] private float occlusionLerpSpeed = 5.0f;
-        internal static float _occlusionLerpSpeed = 5.0f;
-        [SerializeField] private float voxComputeDistance = 35.0f;
-        internal static float _voxComputeDistanceMeter = 35.0f;
-        internal static int _voxComputeDistanceVox = 350;
-        [SerializeField] private ushort indirectExtraDistanceMeter = 20;
-        internal static ushort _indirectExtraDistanceVox = 20;
-        [SerializeField] private float occludedFilterDisM = 20.0f;
-        internal static float _occludedFilterDisM = 20.0f;
-        [SerializeField] private float fullyOccludedLowPassFreq = 700.0f;
-        internal static float _fullyOccludedLowPassFreq = 700.0f;
+        [SerializeField] private float occlusionLerpSpeed = 8.0f;
+        internal static float _occlusionLerpSpeed = 8.0f;
+        [SerializeField] private float voxComputeDistance = 70.0f;
+        internal static float _voxComputeDistanceMeter = 70.0f;
+        internal static int _voxComputeDistanceVox = 700;
+        [SerializeField] private ushort indirectExtraDistanceMeter = 3;
+        internal static ushort _indirectExtraDistanceVox = 30;
+        [SerializeField] private float occludedFilterDisM = 10.0f;
+        internal static float _occludedFilterDisM = 10.0f;
+        [SerializeField] private float fullyOccludedLowPassFreq = 600.0f;
+        internal static float _fullyOccludedLowPassFreq = 600.0f;
+
+        [Header("Audio Surfaces")]
+        [SerializeField] private AudioSurface.SurfaceType defaultSurfaceType = AudioSurface.SurfaceType.defualt;
+        internal static int _defualtSurfaceIndex = 0;
+        [SerializeField] private bool registerAllCollidersOnSceneLoad = true;
+        internal static bool _registerAllCollidersOnSceneLoad = true;
+        [SerializeField] internal AudioSurface.SurfaceConfig[] defaultAudioSurfaces = new AudioSurface.SurfaceConfig[0];
+
 
 #if UNITY_EDITOR
         [Header("Debug")]
