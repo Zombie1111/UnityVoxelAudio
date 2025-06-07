@@ -55,26 +55,16 @@ namespace RaytracedAudio
 
         }
 
-        internal struct Data
+        internal readonly struct Data
         {
             internal Data(AudioInstance ai)
             {
                 pos = ai.position;
-                dir = Vector3.zero;//Always set in job
-                dis = -1.0f;//Always set in job, -1.0f tells its the first time so no lerping
-                clip = ai.clip;
-                if (ai.hasReverb == true) reverbFilter = ai.reverbFilter;
-                else reverbFilter = new(System.IntPtr.Zero);
-                if (ai.hasOcclusion == true) lowpassFilter = ai.lowpassFilter;
-                else lowpassFilter = new(System.IntPtr.Zero);
+                reverbFilter = ai.reverbFilter;
             }
 
-            internal Vector3 pos;
-            internal Vector3 dir;
-            internal float dis;
-            internal readonly EventInstance clip;
+            internal readonly Vector3 pos;
             internal readonly FMOD.DSP reverbFilter;
-            internal readonly FMOD.DSP lowpassFilter;
         }
 
         /// <summary>
@@ -82,7 +72,6 @@ namespace RaytracedAudio
         /// </summary>
         internal volatile int id = -1;
         internal Data data;
-        internal int prevDataI = -1;
         internal EventInstance clip;
         internal EVENT_CALLBACK callback;
         internal bool hasOcclusion = true;
@@ -133,12 +122,10 @@ namespace RaytracedAudio
         /// </summary>
         internal AudioEffects audioEffects = AudioEffects.all;
 
-
         /// <summary>
         /// Worldspace real position of the source
         /// </summary>
         internal Vector3 position = Vector3.zero;
-
         /// <summary>
         /// Worldspace real position of the source
         /// </summary>
@@ -147,12 +134,20 @@ namespace RaytracedAudio
         /// <summary>
         /// Worldspace direction where the sound is coming from (Direction from listener)
         /// </summary>
-        public Vector3 _direction => data.dir;
+        internal Vector3 direction = Vector3.zero;
+        /// <summary>
+        /// Worldspace direction where the sound is coming from (Direction from listener)
+        /// </summary>
+        public Vector3 _direction => direction;
 
         /// <summary>
         /// Worldspace occluded distance from listener to the source
         /// </summary>
-        public float _distance => data.dis;
+        internal float distance = -1.0f;
+        /// <summary>
+        /// Worldspace occluded distance from listener to the source
+        /// </summary>
+        public float _distance => distance;
 
         /// <summary>
         /// If parentTrans != null, this is the local position of the source relative to parentTrans
@@ -327,10 +322,10 @@ namespace RaytracedAudio
 
         internal void ResetSource()
         {
-            prevDataI = -1;
+            distance = -1.0f;
         }
 
-        internal void TickSource(float deltaTime, int aiDataI)
+        internal void TickSource(float deltaTime, ref int aiDataI)
         {
             //Is still valid?
             if (hadParentTrans == true && parentTrans == null)
@@ -359,69 +354,60 @@ namespace RaytracedAudio
                 position = parentTrans.TransformPoint(posL);
             }
 
-            if (prevDataI > -1)
+            if (hasReverb == true) AudioReverb.aisData_native[aiDataI++] = new(this);
+
+            //Update effects
+            if (hasOcclusion == true)//This can be moved to job, NOT WORTH IT FOR NOW THO!
             {
-                data = AudioManager.aisData_native[prevDataI];
-                data.pos = position;
+                float dis = AudioOcclusion.SampleOcclusionAtPos(position, out Vector3 dir, out float ocAmount);
+                ocAmount = 1.0f - ocAmount;
+                float ocSpeed = AudioSettings._occlusionLerpSpeed / (1.0f + (dis / AudioSettings._voxComputeDistanceMeter));
+
+                if (distance < 0.0f)
+                {
+                    distance = dis;
+                    direction = dir;
+                }
+                else
+                {
+                    distance = Mathf.Lerp(distance, dis, AudioSettings._occlusionLerpSpeed * deltaTime);
+                    direction = Vector3.Slerp(direction, dir, AudioSettings._occlusionLerpSpeed * deltaTime);
+                }
+
+                ////Bounce brightness (0.0 == di0, de100: 0.5 == di50, de50, 1.0, di100, de0)
+                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DIFFUSION, Mathf.Lerp(0.0f, 100.0f, traceInput.resSurface.brightness));
+                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DENSITY, Mathf.Lerp(100.0f, 0.0f, traceInput.resSurface.brightness));
+                //
+                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.HIGHCUT, Mathf.Lerp(20.0f, 4000.0f, traceInput.resSurface.metallicness));
+                //
+                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.EARLYLATEMIX, Mathf.Lerp(0.0f, 66.0f, traceInput.resSurface.tail * 2.0f));
+                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.HFDECAYRATIO, Mathf.Lerp(0.0f, 100.0f, (traceInput.resSurface.tail - 0.5f) * 2.0f));
+                //
+                ////float wetL = Mathf.Lerp(-80.0f, 20.0f, traceData.resSurface.reflectness);
+                ////float wetL = Mathf.Lerp(-80.0f, 20.0f, traceData.resSurface.reflectness);
+                //float wetL = 10.377f * Mathf.Log(Mathf.Clamp01(traceInput.resSurface.reflectness)) + 95.029f;
+                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DECAYTIME, Mathf.Exp(0.0981f * wetL));
+                ////reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DECAYTIME, 2.0f * Mathf.Exp(0.0906f * (wetL + 80.00001f)));
+
+                //lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, -2409 * Mathf.Log(traceInput.resSurface.passthrough) - 217.15f);
+                lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, Mathf.Lerp(AudioSettings._fullyOccludedLowPassFreq, 17000.0f, ocAmount * ocAmount));
             }
-            else data = new(this);
+            else
+            {
+                direction = (position - AudioManager.camPos).normalized;
+                distance = (position - AudioManager.camPos).magnitude;
+            }
 
-            AudioManager.aisData_native[aiDataI] = data;
-            prevDataI = aiDataI;
+#if UNITY_EDITOR
+            if (AudioSettings._debugMode == DebugMode.drawAudioDirection)
+            {
+                Debug.DrawLine(AudioManager.camPos, AudioManager.camPos + (0.25f * distance * direction), Color.magenta, 0.1f);
+            }
+#endif
 
-//            //Update effects
-//            if (hasOcclusion == true)
-//            {
-//                float dis = AudioOcclusion.SampleOcclusionAtPos(position, out Vector3 dir, out float ocAmount);
-//                ocAmount = 1.0f - ocAmount;
-//                float ocSpeed = AudioSettings._occlusionLerpSpeed / (1.0f + (dis / AudioSettings._voxComputeDistanceMeter));
-//
-//                if (distance < 0.0f)
-//                {
-//                    distance = dis;
-//                    direction = dir;
-//                }
-//                else
-//                {
-//                    distance = Mathf.Lerp(distance, dis, AudioSettings._occlusionLerpSpeed * deltaTime);
-//                    direction = Vector3.Slerp(direction, dir, AudioSettings._occlusionLerpSpeed * deltaTime);
-//
-//                }
-//
-//                ////Bounce brightness (0.0 == di0, de100: 0.5 == di50, de50, 1.0, di100, de0)
-//                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DIFFUSION, Mathf.Lerp(0.0f, 100.0f, traceInput.resSurface.brightness));
-//                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DENSITY, Mathf.Lerp(100.0f, 0.0f, traceInput.resSurface.brightness));
-//                //
-//                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.HIGHCUT, Mathf.Lerp(20.0f, 4000.0f, traceInput.resSurface.metallicness));
-//                //
-//                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.EARLYLATEMIX, Mathf.Lerp(0.0f, 66.0f, traceInput.resSurface.tail * 2.0f));
-//                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.HFDECAYRATIO, Mathf.Lerp(0.0f, 100.0f, (traceInput.resSurface.tail - 0.5f) * 2.0f));
-//                //
-//                ////float wetL = Mathf.Lerp(-80.0f, 20.0f, traceData.resSurface.reflectness);
-//                ////float wetL = Mathf.Lerp(-80.0f, 20.0f, traceData.resSurface.reflectness);
-//                //float wetL = 10.377f * Mathf.Log(Mathf.Clamp01(traceInput.resSurface.reflectness)) + 95.029f;
-//                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DECAYTIME, Mathf.Exp(0.0981f * wetL));
-//                ////reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DECAYTIME, 2.0f * Mathf.Exp(0.0906f * (wetL + 80.00001f)));
-//
-//                //lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, -2409 * Mathf.Log(traceInput.resSurface.passthrough) - 217.15f);
-//                lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, Mathf.Lerp(AudioSettings._fullyOccludedLowPassFreq, 17000.0f, ocAmount * ocAmount));
-//            }
-//            else
-//            {
-//                direction = (position - AudioManager.camPos).normalized;
-//                distance = (position - AudioManager.camPos).magnitude;
-//            }
-//
-//#if UNITY_EDITOR
-//            if (AudioSettings._debugMode == DebugMode.drawAudioDirection)
-//            {
-//                Debug.DrawLine(AudioManager.camPos, AudioManager.camPos + (0.25f * distance * direction), Color.magenta, 0.1f);
-//            }
-//#endif
-//
-//            //Apply 3D
-//            fmod3D.position = (AudioManager.camPos + (direction * (distance / AudioSettings._minMaxDistanceFactor))).ToFMODVector();
-//            clip.set3DAttributes(fmod3D);
+            //Apply 3D
+            fmod3D.position = (AudioManager.camPos + (direction * (distance / AudioSettings._minMaxDistanceFactor))).ToFMODVector();
+            clip.set3DAttributes(fmod3D);
         }
 
         internal void Dispose(bool destroying)//Destroyed state is set before calling this

@@ -96,7 +96,7 @@ namespace RaytracedAudio
             SceneManager.sceneUnloaded += OnSceneUnLoaded;
             AudioSurface.Allocate();//Accessed in AudioSettings so must be initlized before it
             AudioSettings._instance.Init();//Called with true in AudioSurface.Allocate() 
-            aisData_native = new NativeArray<AudioInstance.Data>(AudioSettings._maxConcurrentAudioSources, Allocator.Persistent);
+            AudioReverb.Allocate();
             SetListener();
             AudioOcclusion.Init();
 
@@ -119,11 +119,11 @@ namespace RaytracedAudio
             if (isInitilized == false) return;
             isInitilized = false;
 
-            aisData_native.Dispose();
+            AudioReverb.Dispose();
             AudioSurface.Dispose();
             AudioOcclusion.Destroy();
             SceneManager.sceneUnloaded -= OnSceneUnLoaded;
-            AudioInstance[] allAIs = AudioManager._instance.GetAllAudioInstancesSafe();
+            AudioInstance[] allAIs = GetAllAudioInstancesSafe();
 
             foreach (AudioInstance ai in allAIs)
             {
@@ -149,7 +149,7 @@ namespace RaytracedAudio
 
             foreach (AudioInstance ai in GetAllAudioInstancesSafe())
             {
-                ai.TickSource(deltaTime, aiDataI++);
+                ai.TickSource(deltaTime, ref aiDataI);
             }
         }
 
@@ -174,7 +174,7 @@ namespace RaytracedAudio
         /// </summary>
         private readonly List<AudioInstance> allAIs = new(64);
 
-        internal static NativeArray<AudioInstance.Data> aisData_native;
+
 
         /// <summary>
         /// Returns all active AudioInstances
