@@ -3,6 +3,7 @@ using FMODUnity;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using Unity.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -95,6 +96,7 @@ namespace RaytracedAudio
             SceneManager.sceneUnloaded += OnSceneUnLoaded;
             AudioSurface.Allocate();//Accessed in AudioSettings so must be initlized before it
             AudioSettings._instance.Init();//Called with true in AudioSurface.Allocate() 
+            aisData_native = new NativeArray<AudioInstance.Data>(AudioSettings._maxConcurrentAudioSources, Allocator.Persistent);
             SetListener();
             AudioOcclusion.Init();
 
@@ -117,6 +119,7 @@ namespace RaytracedAudio
             if (isInitilized == false) return;
             isInitilized = false;
 
+            aisData_native.Dispose();
             AudioSurface.Dispose();
             AudioOcclusion.Destroy();
             SceneManager.sceneUnloaded -= OnSceneUnLoaded;
@@ -142,10 +145,11 @@ namespace RaytracedAudio
 
             //Tick sources
             float deltaTime = Time.deltaTime;
+            int aiDataI = 0;
 
             foreach (AudioInstance ai in GetAllAudioInstancesSafe())
             {
-                ai.TickSource(deltaTime);
+                ai.TickSource(deltaTime, aiDataI++);
             }
         }
 
@@ -164,11 +168,13 @@ namespace RaytracedAudio
         /// <summary>
         /// Must be locked with aiContainersLock
         /// </summary>
-        private readonly Dictionary<IntPtr, AudioInstance> handleToAI = new(32);
+        private readonly Dictionary<IntPtr, AudioInstance> handleToAI = new(64);
         /// <summary>
         /// Must be locked with aiContainersLock
         /// </summary>
-        private readonly List<AudioInstance> allAIs = new(32);
+        private readonly List<AudioInstance> allAIs = new(64);
+
+        internal static NativeArray<AudioInstance.Data> aisData_native;
 
         /// <summary>
         /// Returns all active AudioInstances
@@ -186,6 +192,13 @@ namespace RaytracedAudio
 
         public AudioInstanceWrap PlaySound(AudioReference aRef, AudioProps aProps = null)
         {
+            if (allAIs.Count >= AudioSettings._maxConcurrentAudioSources)
+            {
+                Debug.LogError("Unable to play sound because AudioSettings._maxConcurrentAudioSources has been reached!" +
+                    "Play less sounds or increase max sources in AudioSettings: " + AudioSettings._maxConcurrentAudioSources);
+                return new();
+            }
+
             //Get audio instance
             AudioConfigAsset aConfig = aRef.GetAudioConfig();
             AudioInstance ai = new()
@@ -205,8 +218,8 @@ namespace RaytracedAudio
 
             //Get effects inputs
             ai.ResetSource();
-            ai.hasOcclusion = ai.audioEffects.HasTracing();
-            ai.zoneInput = ai.audioEffects.HasZones() == true ? (ai.zoneInput ?? AudioZones.CreateZoneInput(ai)) : null;
+            ai.hasOcclusion = ai.audioEffects.HasOcclusion();
+            ai.hasReverb = ai.audioEffects.HasReverb();
 
             //Register audio instance
             ai.id = AudioInstance.nextId;
@@ -334,12 +347,12 @@ namespace RaytracedAudio
                     ai.lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, 17000.0f);//Decrease based on underwater and behind wall, 400~ sounded good for water
                     cg.addDSP(1, ai.lowpassFilter);
 
-                    if (ai.audioEffects.HasZones() == true)
+                    if (ai.audioEffects.HasReverb() == true)
                     {
 
                     }
 
-                    if (ai.audioEffects.HasTracing() == true)
+                    if (ai.audioEffects.HasOcclusion() == true)
                     {
                         RuntimeManager.CoreSystem.createDSPByType(FMOD.DSP_TYPE.SFXREVERB, out ai.reverbFilter);
 
@@ -413,8 +426,6 @@ namespace RaytracedAudio
             {
                 if (ai.id > 0) InActivate();
                 if (ai.GetStateSafe() == AudioInstance.State.destroyed) return;
-
-                AudioZones.DestroyZoneInput(ai.zoneInput);
 
                 ai.SetStateSafe(AudioInstance.State.destroyed);//Must be called first to avoid potential stack overflow
                 ai.Dispose(true);

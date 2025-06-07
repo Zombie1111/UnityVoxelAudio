@@ -320,9 +320,9 @@ namespace RaytracedAudio
     public enum AudioEffects
     {
         all = 0,
-        noTracing = 10,
-        noZones = 11,
-        nothing = 20
+        noOcclusion = 10,
+        noReverb = 11,
+        none = 20
     }
 
 #if UNITY_EDITOR
@@ -367,21 +367,21 @@ namespace RaytracedAudio
 
     public static class AudioHelpMethods
     {
-        public static bool HasTracing(this AudioEffects aEffects)
+        public static bool HasOcclusion(this AudioEffects aEffects)
         {
-            return (aEffects == AudioEffects.all || aEffects == AudioEffects.noZones)
-                && (AudioSettings.__globalAudioEffects == AudioEffects.all || AudioSettings.__globalAudioEffects == AudioEffects.noZones);
+            return (aEffects == AudioEffects.all || aEffects == AudioEffects.noReverb)
+                && (AudioSettings.__globalAudioEffects == AudioEffects.all || AudioSettings.__globalAudioEffects == AudioEffects.noReverb);
         }
 
-        public static bool HasZones(this AudioEffects aEffects)
+        public static bool HasReverb(this AudioEffects aEffects)
         {
-            return (aEffects == AudioEffects.all || aEffects == AudioEffects.noTracing)
-                && (AudioSettings.__globalAudioEffects == AudioEffects.all || AudioSettings.__globalAudioEffects == AudioEffects.noTracing);
+            return (aEffects == AudioEffects.all || aEffects == AudioEffects.noOcclusion)
+                && (AudioSettings.__globalAudioEffects == AudioEffects.all || AudioSettings.__globalAudioEffects == AudioEffects.noOcclusion);
         }
 
         public static bool HasAny(this AudioEffects aEffects)
         {
-            return aEffects != AudioEffects.nothing && AudioSettings.__globalAudioEffects != AudioEffects.nothing;
+            return aEffects != AudioEffects.none && AudioSettings.__globalAudioEffects != AudioEffects.none;
         }
 
         internal static T[] GetWithLenght<T>(this T[] array, int newLength)

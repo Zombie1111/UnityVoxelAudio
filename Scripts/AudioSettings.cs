@@ -41,21 +41,26 @@ namespace RaytracedAudio
                 Debug.LogError("defaultAudioConfigAsset is not allow to be null! (Creating temp)");
             }
 
+            //Generic
             _defaultAudioConfigAsset = defaultAudioConfigAsset;
             _buses = buses.ToArray();
             _minMaxDistanceFactor = minMaxDistanceFactor;
             _stopAudioOnSceneLoad = stopAudioOnSceneLoad;
-            _mask = mask;
-            _voxSnapDistance = voxSnapDistance;
-            _occlusionLerpSpeed = occlusionLerpSpeed;
             __globalAudioEffects = globalAudioEffects;
+            _maxConcurrentAudioSources = maxConcurrentAudioSources;
 
             //Occlusion
+            _occlusionLerpSpeed = occlusionLerpSpeed;
             _voxComputeDistanceMeter = voxComputeDistance;
             _voxComputeDistanceVox = Mathf.RoundToInt((voxComputeDistance * 5) / VoxGlobalSettings.voxelSizeWorld);
             _indirectExtraDistanceVox = (ushort)Mathf.RoundToInt((indirectExtraDistanceMeter * 5) / VoxGlobalSettings.voxelSizeWorld);
             _occludedFilterDisM = occludedFilterDisM;
             _fullyOccludedLowPassFreq = fullyOccludedLowPassFreq;
+            _voxSnapDistance = voxSnapDistance;
+
+            //Tracing
+            _rayMaxDistance = rayMaxDistance;
+            _mask = mask;
 
             //Surface
             _registerAllCollidersOnSceneLoad = registerAllCollidersOnSceneLoad;
@@ -123,6 +128,7 @@ namespace RaytracedAudio
             return null;
         }
 
+        [Header("Generic")]
         [Tooltip("AudioConfigAsset to use if AudioReference.audioConfigOverride is null")]
         [SerializeField] private AudioConfigAsset defaultAudioConfigAsset = null;
         internal static AudioConfigAsset _defaultAudioConfigAsset;
@@ -135,11 +141,11 @@ namespace RaytracedAudio
         [Tooltip("If true non persistent audio will be stopped on SceneManager.OnSceneUnloaded")]
         [SerializeField] private bool stopAudioOnSceneLoad = true;
         internal static bool _stopAudioOnSceneLoad = true;
+        [SerializeField] private int maxConcurrentAudioSources = 512;
+        internal static int _maxConcurrentAudioSources = 512;
 
         [Header("Audio Occlusion")]
-        [Tooltip("Layers that has solid voxels, usually also player collidable")]
-        [SerializeField] private LayerMask mask = Physics.AllLayers;
-        internal static LayerMask _mask = Physics.AllLayers;
+        [Tooltip("If listener is inside solid voxels, radius in voxels to check for empty space")]
         [SerializeField] private int voxSnapDistance = 3;
         internal static int _voxSnapDistance = 3;
         [SerializeField] private float occlusionLerpSpeed = 8.0f;
@@ -161,6 +167,12 @@ namespace RaytracedAudio
         internal static bool _registerAllCollidersOnSceneLoad = true;
         [SerializeField] internal AudioSurface.SurfaceConfig[] defaultAudioSurfaces = new AudioSurface.SurfaceConfig[0];
 
+        [Header("Tracing")]
+        [Tooltip("Layers that has solid voxels, usually also player collidable")]
+        [SerializeField] private LayerMask mask = Physics.AllLayers;
+        internal static LayerMask _mask = Physics.AllLayers;
+        [SerializeField] private float rayMaxDistance = 64.0f;
+        internal static float _rayMaxDistance = 64.0f;
 
 #if UNITY_EDITOR
         [Header("Debug")]
