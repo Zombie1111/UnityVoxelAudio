@@ -55,23 +55,27 @@ namespace RaytracedAudio
 
         }
 
-        internal readonly struct Data
+        internal struct ReverbData
         {
-            internal Data(AudioInstance ai)
+            internal ReverbData(AudioInstance ai)
             {
                 pos = ai.position;
                 reverbFilter = ai.reverbFilter;
+                surf = new(-2.0f);
+                isNew = true;
             }
 
-            internal readonly Vector3 pos;
-            internal readonly FMOD.DSP reverbFilter;
+            internal FMOD.DSP reverbFilter;
+            internal Vector3 pos;
+            internal AudioSurface.Surface surf;
+            internal bool isNew;
         }
 
         /// <summary>
         /// Negative or 0 if inactive
         /// </summary>
         internal volatile int id = -1;
-        internal Data data;
+        internal int prevReverbDataI = -1;
         internal EventInstance clip;
         internal EVENT_CALLBACK callback;
         internal bool hasOcclusion = true;
@@ -118,11 +122,6 @@ namespace RaytracedAudio
         }
 
         /// <summary>
-        /// Write only allowed on creation/play
-        /// </summary>
-        internal AudioEffects audioEffects = AudioEffects.all;
-
-        /// <summary>
         /// Worldspace real position of the source
         /// </summary>
         internal Vector3 position = Vector3.zero;
@@ -164,7 +163,7 @@ namespace RaytracedAudio
 
         public delegate void Event_OnAudioCallback(AudioInstance ai, AudioCallback type, AudioTimelineData timelineData);
         /// <summary>
-        /// Not invoked from main thread!
+        /// Not invoked from main thread! (timelineData may be for old event if type has not been invoked on this event before)
         /// (Please subscribe directly after calling PlaySound and always unsubscribe in this.OnAudioCallback when type == Stopped)
         /// </summary>
         public event Event_OnAudioCallback OnAudioCallback;
@@ -323,9 +322,10 @@ namespace RaytracedAudio
         internal void ResetSource()
         {
             distance = -1.0f;
+            prevReverbDataI = -1;
         }
 
-        internal void TickSource(float deltaTime, ref int aiDataI)
+        internal void TickSource(float deltaTime, ref int aiReverbDataI)
         {
             //Is still valid?
             if (hadParentTrans == true && parentTrans == null)
@@ -354,8 +354,6 @@ namespace RaytracedAudio
                 position = parentTrans.TransformPoint(posL);
             }
 
-            if (hasReverb == true) AudioReverb.aisData_native[aiDataI++] = new(this);
-
             //Update effects
             if (hasOcclusion == true)//This can be moved to job, NOT WORTH IT FOR NOW THO!
             {
@@ -374,23 +372,9 @@ namespace RaytracedAudio
                     direction = Vector3.Slerp(direction, dir, AudioSettings._occlusionLerpSpeed * deltaTime);
                 }
 
-                ////Bounce brightness (0.0 == di0, de100: 0.5 == di50, de50, 1.0, di100, de0)
-                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DIFFUSION, Mathf.Lerp(0.0f, 100.0f, traceInput.resSurface.brightness));
-                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DENSITY, Mathf.Lerp(100.0f, 0.0f, traceInput.resSurface.brightness));
-                //
-                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.HIGHCUT, Mathf.Lerp(20.0f, 4000.0f, traceInput.resSurface.metallicness));
-                //
-                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.EARLYLATEMIX, Mathf.Lerp(0.0f, 66.0f, traceInput.resSurface.tail * 2.0f));
-                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.HFDECAYRATIO, Mathf.Lerp(0.0f, 100.0f, (traceInput.resSurface.tail - 0.5f) * 2.0f));
-                //
-                ////float wetL = Mathf.Lerp(-80.0f, 20.0f, traceData.resSurface.reflectness);
-                ////float wetL = Mathf.Lerp(-80.0f, 20.0f, traceData.resSurface.reflectness);
-                //float wetL = 10.377f * Mathf.Log(Mathf.Clamp01(traceInput.resSurface.reflectness)) + 95.029f;
-                //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DECAYTIME, Mathf.Exp(0.0981f * wetL));
-                ////reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DECAYTIME, 2.0f * Mathf.Exp(0.0906f * (wetL + 80.00001f)));
-
                 //lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, -2409 * Mathf.Log(traceInput.resSurface.passthrough) - 217.15f);
-                lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, Mathf.Lerp(AudioSettings._fullyOccludedLowPassFreq, 17000.0f, ocAmount * ocAmount));
+                lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, Mathf.Min(AudioManager.currentUnderwaterFreq,
+                     Mathf.Lerp(AudioSettings._fullyOccludedLowPassFreq, AudioSettings._noLowPassFreq, ocAmount * ocAmount)));
             }
             else
             {
@@ -408,24 +392,51 @@ namespace RaytracedAudio
             //Apply 3D
             fmod3D.position = (AudioManager.camPos + (direction * (distance / AudioSettings._minMaxDistanceFactor))).ToFMODVector();
             clip.set3DAttributes(fmod3D);
+
+            if (hasReverb == true)
+            {
+                clip.isVirtual(out bool isVirtual);
+
+                if (isVirtual == false)
+                {
+#if UNITY_EDITOR
+                    if (aiReverbDataI + 2 >= AudioSettings._maxRealVoices)//+1 for the internal one
+                    {
+                        Debug.LogError("More real voices than _maxRealVoices provided by FMOD, how??? (AudioReverb wont work properly)");
+                        return;
+                    }
+#endif
+
+                    if (prevReverbDataI > -1)
+                    {
+                        var reverbD = AudioReverb.aisReverbData_native[prevReverbDataI];
+                        reverbD.pos = position;
+                        AudioReverb.aisReverbData_native[aiReverbDataI] = reverbD;
+                    }
+                    else AudioReverb.aisReverbData_native[aiReverbDataI] = new(this);
+
+                    prevReverbDataI = aiReverbDataI++;
+                }
+                else prevReverbDataI = -1;
+            }
         }
 
-        internal void Dispose(bool destroying)//Destroyed state is set before calling this
+        internal void Dispose()//Destroyed state is set before calling this
         {
             if (clip.isValid() == false) return;
 
-            if (audioEffects.HasAny() == true && clip.getChannelGroup(out FMOD.ChannelGroup cg) == FMOD.RESULT.OK)
+            if ((hasOcclusion == true || hasReverb == true) && clip.getChannelGroup(out FMOD.ChannelGroup cg) == FMOD.RESULT.OK)
             {//Its expected to fail if called before OnCreated()
-                if (reverbFilter.hasHandle())
-                {
-                    cg.removeDSP(reverbFilter);
-                    reverbFilter.release();
-                }
-
                 if (lowpassFilter.hasHandle() == true)
                 {
                     cg.removeDSP(lowpassFilter);
                     lowpassFilter.release();
+                }
+
+                if (reverbFilter.hasHandle())
+                {
+                    cg.removeDSP(reverbFilter);
+                    reverbFilter.release();
                 }
             }
 

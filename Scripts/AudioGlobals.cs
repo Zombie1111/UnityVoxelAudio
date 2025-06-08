@@ -3,6 +3,7 @@ using UnityEngine;
 using FMODUnity;
 using FMOD.Studio;
 using FMOD;
+using Unity.Collections;
 
 namespace RaytracedAudio
 {
@@ -392,6 +393,23 @@ namespace RaytracedAudio
             T[] newArray = new T[newLength];
             Array.Copy(array, newArray, Math.Min(array.Length, newLength));
             return newArray;
+        }
+
+        /// <summary>
+        /// Returns directions with temp allocator (Always 6)
+        /// </summary>
+        internal static NativeArray<Vector3> GetAxisDirsNative()
+        {
+            NativeArray<Vector3> dirs = new(6, Allocator.Temp);
+
+            dirs[0] = Vector3.right;
+            dirs[1] = Vector3.up;
+            dirs[2] = Vector3.forward;
+            dirs[3] = -Vector3.right;
+            dirs[4] = -Vector3.up;
+            dirs[5] = -Vector3.forward;
+           
+            return dirs;
         }
     }
     #endregion Audio Callbacks

@@ -1,4 +1,5 @@
 using Codice.CM.Common.Checkin.Partial;
+using FMODUnity;
 using System.Collections.Generic;
 using UnityEngine;
 using zombVoxels;
@@ -47,7 +48,6 @@ namespace RaytracedAudio
             _minMaxDistanceFactor = minMaxDistanceFactor;
             _stopAudioOnSceneLoad = stopAudioOnSceneLoad;
             __globalAudioEffects = globalAudioEffects;
-            _maxConcurrentAudioSources = maxConcurrentAudioSources;
 
             //Occlusion
             _occlusionLerpSpeed = occlusionLerpSpeed;
@@ -56,9 +56,11 @@ namespace RaytracedAudio
             _indirectExtraDistanceVox = (ushort)Mathf.RoundToInt((indirectExtraDistanceMeter * 5) / VoxGlobalSettings.voxelSizeWorld);
             _occludedFilterDisM = occludedFilterDisM;
             _fullyOccludedLowPassFreq = fullyOccludedLowPassFreq;
+            _underwaterLowPassFreq = underwaterLowPassFreq;
             _voxSnapDistance = voxSnapDistance;
 
             //Tracing
+            _reverbLerpSpeed = reverbLerpSpeed;
             _rayMaxDistance = rayMaxDistance;
             _mask = mask;
 
@@ -79,6 +81,13 @@ namespace RaytracedAudio
                 }
 
                 _defualtSurfaceIndex = AudioSurface.GetSurfaceI(defaultSurfaceType);
+            }
+
+            //Voices
+            if (Application.isPlaying == true)
+            {
+                RuntimeManager.CoreSystem.getSoftwareChannels(out int maxRealVoices);
+                _maxRealVoices = maxRealVoices + 1;//+1 for internal usage
             }
 
             busPathToBus.Clear();
@@ -141,8 +150,7 @@ namespace RaytracedAudio
         [Tooltip("If true non persistent audio will be stopped on SceneManager.OnSceneUnloaded")]
         [SerializeField] private bool stopAudioOnSceneLoad = true;
         internal static bool _stopAudioOnSceneLoad = true;
-        [SerializeField] private int maxConcurrentAudioSources = 512;
-        internal static int _maxConcurrentAudioSources = 512;
+        internal static int _maxRealVoices = 65;
 
         [Header("Audio Occlusion")]
         [Tooltip("If listener is inside solid voxels, radius in voxels to check for empty space")]
@@ -159,6 +167,20 @@ namespace RaytracedAudio
         internal static float _occludedFilterDisM = 10.0f;
         [SerializeField] private float fullyOccludedLowPassFreq = 600.0f;
         internal static float _fullyOccludedLowPassFreq = 600.0f;
+        [Tooltip("At runtime call AudioSettings.SetIsUnderwater() to toggle underwater filter")]
+        [SerializeField] private float underwaterLowPassFreq = 400.0f;
+        internal static float _underwaterLowPassFreq = 400.0f;
+        internal static bool _isUnderwater = false;
+
+        internal const float _noLowPassFreq = 17000.0f;
+
+        /// <summary>
+        /// If true underwater filter will be applied to all sounds that has occlusion
+        /// </summary>
+        public static void SetIsUnderwater(bool to)
+        {
+            _isUnderwater = to;
+        }
 
         [Header("Audio Surfaces")]
         [SerializeField] private AudioSurface.SurfaceType defaultSurfaceType = AudioSurface.SurfaceType.defualt;
@@ -173,6 +195,8 @@ namespace RaytracedAudio
         internal static LayerMask _mask = Physics.AllLayers;
         [SerializeField] private float rayMaxDistance = 64.0f;
         internal static float _rayMaxDistance = 64.0f;
+        [SerializeField] private float reverbLerpSpeed = 8.0f;
+        internal static float _reverbLerpSpeed = 8.0f;
 
 #if UNITY_EDITOR
         [Header("Debug")]

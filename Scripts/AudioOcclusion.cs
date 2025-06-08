@@ -237,9 +237,9 @@ internal class AudioOcclusion
 
     }
 
-    //internal const float maxHearRadiusMeter = 35.0f;
-    //private const ushort maxHearRadiusVox = 350;//maxHearRadiusVox = maxHearRadiusMeter * 5 / VoxGlobalSettings.voxelSizeWorld (350/35m takes 9ms)
     private const int voxMargin = 1;
+    private const byte passthroughVoxI = 0;//Useful for doors, allows audio to go through put with a penalty of passthroughExtraVoxDis. Use 0 if unused
+    private const ushort passthroughExtraVoxDis = 100;
 
     [BurstCompile]
     private unsafe struct CopyVoxsType_job : IJob
@@ -357,7 +357,7 @@ internal class AudioOcclusion
                 for (int i = 0; i < 26; i++)
                 {
                     int nextVoxI = voxI + voxDirs[i];
-                    if (voxsDis[nextVoxI] < 65000) continue;//Old value is better, why does comparing against constant value give same result as nextDis, comparing with constant should be wrong
+                    if (voxsDis[nextVoxI] < 65000) continue;//Old value is better, why does comparing against constant value give similar result as nextDis, comparing with constant should be wrong
                     //if (nextVoxI < 0 || nextVoxI >= vWorld.vCountXYZ) continue;
                     //if (voxsDis[nextVoxI] <= nextDis) continue;//Old value is better
 
@@ -367,9 +367,11 @@ internal class AudioOcclusion
                     if (nextDis > maxHearRadiusVox) continue;
 
                     byte nextVoxType = voxsType[nextVoxI];
-                    if (nextVoxType > VoxGlobalSettings.solidTypeStart)
+                    //if (nextVoxType > VoxGlobalSettings.solidTypeStart)
+                    if (nextVoxType > 0)
                     {
-                        continue;
+                        if (nextVoxType == passthroughVoxI) nextDis += passthroughExtraVoxDis;
+                        else if (nextVoxType > VoxGlobalSettings.solidTypeStart) continue;
                     }
 
 #if UNITY_EDITOR

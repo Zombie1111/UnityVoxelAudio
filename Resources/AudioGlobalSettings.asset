@@ -21,15 +21,15 @@ MonoBehaviour:
   globalAudioEffects: 0
   minMaxDistanceFactor: 3.5
   stopAudioOnSceneLoad: 1
-  mask:
-    serializedVersion: 2
-    m_Bits: 4294967295
   voxSnapDistance: 3
   occlusionLerpSpeed: 8
   voxComputeDistance: 70
   indirectExtraDistanceMeter: 3
   occludedFilterDisM: 10
   fullyOccludedLowPassFreq: 600
+  underwaterLowPassFreq: 400
+  defaultSurfaceType: 0
+  registerAllCollidersOnSceneLoad: 1
   defaultAudioSurfaces:
   - type: 0
     materialNames:
@@ -40,7 +40,6 @@ MonoBehaviour:
       metallicness: 0
       brightness: 0.5
       tail: 0
-      passthrough: 0
   - type: 1
     materialNames:
     - steel
@@ -48,11 +47,10 @@ MonoBehaviour:
     - container
     - barrel
     surface:
-      reflectness: 0.9
-      metallicness: 0.4
-      brightness: 0.9
-      tail: 0.5
-      passthrough: 0
+      reflectness: 0.45
+      metallicness: 0.2
+      brightness: 0.6
+      tail: 1
   - type: 2
     materialNames:
     - metal
@@ -61,11 +59,10 @@ MonoBehaviour:
     - wire
     - net
     surface:
-      reflectness: 0.85
-      metallicness: 0.4
-      brightness: 1
-      tail: 0.7
-      passthrough: 0
+      reflectness: 0.4
+      metallicness: 0.3
+      brightness: 0.6
+      tail: 1
   - type: 3
     materialNames:
     - porcelain
@@ -77,7 +74,6 @@ MonoBehaviour:
       metallicness: 0.13
       brightness: 0.6
       tail: 1
-      passthrough: 0
   - type: 4
     materialNames:
     - concrete
@@ -93,7 +89,6 @@ MonoBehaviour:
       metallicness: 0.05
       brightness: 0.3
       tail: 0.2
-      passthrough: 0
   - type: 5
     materialNames:
     - stone
@@ -101,11 +96,10 @@ MonoBehaviour:
     - cobble
     - brick
     surface:
-      reflectness: 0.4
-      metallicness: 0.1
+      reflectness: 0.5
+      metallicness: 0.02
       brightness: 0.3
-      tail: 0.8
-      passthrough: 0
+      tail: 0.25
   - type: 6
     materialNames:
     - wood
@@ -122,7 +116,6 @@ MonoBehaviour:
       metallicness: 0
       brightness: 0.4
       tail: 0.5
-      passthrough: 0
   - type: 7
     materialNames:
     - carpet
@@ -137,7 +130,6 @@ MonoBehaviour:
       metallicness: 0
       brightness: 0
       tail: 0
-      passthrough: 0
   - type: 8
     materialNames:
     - glass
@@ -149,7 +141,6 @@ MonoBehaviour:
       metallicness: 0.13
       brightness: 0.6
       tail: 0.4
-      passthrough: 0
   - type: 9
     materialNames:
     - plastic
@@ -162,6 +153,9 @@ MonoBehaviour:
       metallicness: 0
       brightness: 0.5
       tail: 0.2
-      passthrough: 0
-  defaultSurfaceType: 0
+  mask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  rayMaxDistance: 64
+  reverbLerpSpeed: 8
   debugMode: 2

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using Unity.Collections;
+using UnityEditor.Compilation;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
@@ -15,9 +16,11 @@ namespace RaytracedAudio
         #region Surface Object
         [SerializeField] private SurfaceType surfaceType = SurfaceType.defualt;
         [SerializeField] private Surface surfaceOverrides = new(-1.0f);
+        [Tooltip("Must be true to allow changing surface at runtime")]
         [SerializeField] private bool ownSurfaceInstance = false;
         private Collider[] colliders = null;
         private int surfaceIndex = -1;
+        private bool hasOwnInstance = false;
 
         private void Start()
         {
@@ -46,8 +49,13 @@ namespace RaytracedAudio
                 Surface newSurf = surfaceOverrides;//We do not wanna modify surfaceOverrides
                 newSurf.SetInvalidFrom(in surf);
                 surfaceIndex = newSurf.Register(surfaceType, -1);
+                hasOwnInstance = true;
             }
-            else surfaceIndex = GetSurfaceI(surfaceType);
+            else
+            {
+                hasOwnInstance = false;
+                surfaceIndex = GetSurfaceI(surfaceType);
+            }
         }
 
         /// <summary>
@@ -83,7 +91,7 @@ namespace RaytracedAudio
 #endif
 
         /// <summary>
-        /// Sets the surface of all colliders using this AudioSurface, may affect other colliders if ownSurfaceInstance is false
+        /// Sets the surface of all colliders using this AudioSurface
         /// </summary>
         public void SetSurface(ref Surface surface)
         {
@@ -98,6 +106,11 @@ namespace RaytracedAudio
             surfaceOverrides = surface;
             surfaceType = type;
             if (surfaceIndex < 0) return;
+            if (hasOwnInstance == false)
+            {
+                Debug.LogError("Unable to set AudioSurface at runtime if ownSurfaceInstance was false at creation: " + transform.name);
+                return;
+            }
 
             Surface surf = GetSurface(GetSurfaceI(type));
             surface.SetInvalidFrom(in surf);//Even if surface was surfaceOverrides it is set by copying so surfaceOverrides wont change
@@ -183,71 +196,73 @@ namespace RaytracedAudio
             {
                 type = SurfaceType.defualt,
                 materialNames = new string[] { "defualt", "default" },
-                surface = new Surface() { reflectness = 0.0f, metallicness = 0.0f, brightness = 0.5f, tail = 0.0f, passthrough = 0.0f }
+                surface = new Surface() { reflectness = 0.0f, metallicness = 0.0f, brightness = 0.5f, tail = 0.0f }
             },
             new()
             {
                 type = SurfaceType.steel,
                 materialNames = new string[] { "steel", "pipe", "container", "barrel" },
-                surface = new Surface() { reflectness = 0.9f, metallicness = 0.4f, brightness = 0.9f, tail = 0.5f, passthrough = 0.0f }
+                surface = new Surface() { reflectness = 0.9f, metallicness = 0.4f, brightness = 0.9f, tail = 0.5f }
             },
             new()
             {
                 type = SurfaceType.metal,
                 materialNames = new string[] { "metal", "gold", "iron", "wire", "net" },
-                surface = new Surface() { reflectness = 0.85f, metallicness = 0.4f, brightness = 1.0f, tail = 0.7f, passthrough = 0.0f }
+                surface = new Surface() { reflectness = 0.85f, metallicness = 0.4f, brightness = 1.0f, tail = 0.7f }
             },
             new()
             {
                 type = SurfaceType.porcelain,
                 materialNames = new string[] { "porcelain", "sink", "vase", "bath" },
-                surface = new Surface() { reflectness = 0.4f, metallicness = 0.13f, brightness = 0.6f, tail = 1.0f, passthrough = 0.0f }
+                surface = new Surface() { reflectness = 0.4f, metallicness = 0.13f, brightness = 0.6f, tail = 1.0f }
             },
             new()
             {
                 type = SurfaceType.concrete,
                 materialNames = new string[] { "concrete", "wall", "floor", "gravel", "ceiling", "cemet", "paint", "stair" },
-                surface = new Surface() { reflectness = 0.4f, metallicness = 0.05f, brightness = 0.3f, tail = 0.2f, passthrough = 0.0f }
+                surface = new Surface() { reflectness = 0.4f, metallicness = 0.05f, brightness = 0.3f, tail = 0.2f }
             },
             new()
             {
                 type = SurfaceType.rock,
                 materialNames = new string[] { "stone", "rock", "cobble", "brick" },
-                surface = new Surface() { reflectness = 0.4f, metallicness = 0.1f, brightness = 0.3f, tail = 0.8f, passthrough = 0.0f }
+                surface = new Surface() { reflectness = 0.4f, metallicness = 0.1f, brightness = 0.3f, tail = 0.8f }
             },
             new()
             {
                 type = SurfaceType.wood,
                 materialNames = new string[] { "wood", "tree", "plank", "house", "roof", "boat", "desk", "speaker", "fence" },
-                surface = new Surface() { reflectness = 0.1f, metallicness = 0.0f, brightness = 0.4f, tail = 0.5f, passthrough = 0.0f }
+                surface = new Surface() { reflectness = 0.1f, metallicness = 0.0f, brightness = 0.4f, tail = 0.5f }
             },
             new()
             {
                 type = SurfaceType.carpet,
                 materialNames = new string[] { "carpet", "wool", "blanket", "mattress", "curtain", "fiber", "cloth" },
-                surface = new Surface() { reflectness = -0.5f, metallicness = 0.0f, brightness = 0.0f, tail = 0.0f, passthrough = 0.0f }
+                surface = new Surface() { reflectness = -0.5f, metallicness = 0.0f, brightness = 0.0f, tail = 0.0f }
             },
             new()
             {
                 type = SurfaceType.glass,
                 materialNames = new string[] { "glass", "window", "display", "monitor" },
-                surface = new Surface() { reflectness = 0.5f, metallicness = 0.13f, brightness = 0.6f, tail = 0.4f, passthrough = 0.0f }
+                surface = new Surface() { reflectness = 0.5f, metallicness = 0.13f, brightness = 0.6f, tail = 0.4f }
             },
             new()
             {
                 type = SurfaceType.plastic,
                 materialNames = new string[] { "plastic", "bag", "keyboard", "mouse", "controller" },
-                surface = new Surface() { reflectness = 0.5f, metallicness = 0.0f, brightness = 0.5f, tail = 0.2f, passthrough = 0.0f }
+                surface = new Surface() { reflectness = 0.5f, metallicness = 0.0f, brightness = 0.5f, tail = 0.2f }
             },
         };
 
         #endregion Surface Types
 
-        public delegate OnBeforeAudioSurfacesChange OnBeforeAudioSurfacesChange();
+        public delegate void Even_OnBeforeAudioSurfacesWrite();
         /// <summary>
-        /// Invoked before any audio surfaces are changed, make sure no jobs are accessing the native surface containers
+        /// Invoked before any audio surfaces are changed to make sure no jobs are accessing the native surface containers
         /// </summary>
-        public static event OnBeforeAudioSurfacesChange event_OnBeforeAudioSurfacesChange;
+        public static event Even_OnBeforeAudioSurfacesWrite OnBeforeAudioSurfacesWrite;
+
+
 
         [System.Serializable]
         public struct Surface
@@ -256,9 +271,6 @@ namespace RaytracedAudio
             public float metallicness;
             public float brightness;
             public float tail;
-
-            [Tooltip("How affected the audio is by going through a surface (This should be 0.0f for all surfaces except a few like doors)")]
-            public float passthrough;
 
             /// <summary>
             /// If startValue < -1.0f, will use defualt properties
@@ -271,7 +283,6 @@ namespace RaytracedAudio
                     metallicness = 0.0f;
                     brightness = 0.5f;
                     tail = 0.0f;
-                    passthrough = 0.0f;
 
                     return;
                 }
@@ -280,16 +291,15 @@ namespace RaytracedAudio
                 metallicness = startValue;
                 brightness = startValue;
                 tail = startValue;
-                passthrough = startValue;
             }
 
             /// <summary>
-            /// Registers this as the given type and returns the surface index it got registered to.
+            /// Registers this with the given type and returns the surface index it got registered to.
             /// If surfI >= 0 and in range, overrides existing surface at that index.
             /// </summary>
             public readonly int Register(SurfaceType type, int surfI = -1)
             {
-                event_OnBeforeAudioSurfacesChange?.Invoke();//Make sure jobs aint running
+                OnBeforeAudioSurfacesWrite?.Invoke();//Make sure jobs aint running
 
                 if (surfI > -1 && surfI < surfaces.Count)
                 {
@@ -315,7 +325,7 @@ namespace RaytracedAudio
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public readonly bool IsAnyValid()
             {
-                return passthrough > -1.0f || reflectness > -1.0f || brightness > -1.0f || tail > -1.0f || metallicness > -1.0f;
+                return reflectness > -1.0f || brightness > -1.0f || tail > -1.0f || metallicness > -1.0f;
             }
 
             /// <summary>
@@ -328,7 +338,6 @@ namespace RaytracedAudio
                 if (metallicness <= -1.0f) metallicness = from.metallicness;
                 if (brightness <= -1.0f) brightness = from.brightness;
                 if (tail <= -1.0f) tail = from.tail;
-                if (passthrough <= -1.0f) passthrough = from.passthrough;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -341,24 +350,6 @@ namespace RaytracedAudio
                 metallicness += surf.metallicness * weight;
                 brightness += surf.brightness * weight;
                 tail += surf.tail * weight;
-                passthrough += surf.passthrough * weight;
-
-                return weight;
-            }
-
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal float JoinWithPassthrough(Surface surf)
-            {
-                //float weight = 1.0f + Math.Abs(surf.reflectness * 10.0f);//We want reflective stuff to have much higher weight since the last 0.3f besically goes from 0-100% reflectiveness
-                float weight = 1.0f + Math.Abs(surf.reflectness);
-
-                reflectness += surf.reflectness * weight;
-                metallicness += surf.metallicness * weight;
-                brightness += surf.brightness * weight;
-                tail += surf.tail * weight;
-
-                if (surf.passthrough > passthrough) passthrough = surf.passthrough;
 
                 return weight;
             }
@@ -370,17 +361,6 @@ namespace RaytracedAudio
                 metallicness /= totalWeight;
                 brightness /= totalWeight;
                 tail /= totalWeight;
-                passthrough /= totalWeight;
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal void DevidePassthrough(float totalWeight)
-            {
-                reflectness /= totalWeight;
-                metallicness /= totalWeight;
-                brightness /= totalWeight;
-                tail /= totalWeight;
-                //passthrough /= totalWeight;//Dont devide passthrough since its joined using max
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -390,14 +370,13 @@ namespace RaytracedAudio
                 metallicness = Mathf.Lerp(metallicness, target.metallicness, t);
                 brightness = Mathf.Lerp(brightness, target.brightness, t);
                 tail = Mathf.Lerp(tail, target.tail, t);
-                passthrough = Mathf.Lerp(passthrough, target.passthrough, t);
             }
         }
 
         private const int _defualtColAlloc = 1024;
         private const int _maxSurfaceTypesPerCol = 8;
 
-        private struct TriRanges
+        public struct TriRanges
         {
             private int surfaceCount;
             private unsafe fixed int mins[_maxSurfaceTypesPerCol];
@@ -512,13 +491,31 @@ namespace RaytracedAudio
         }
 
         private static NativeHashMap<int, int> colIdToSurfaceI_native;
+        /// <summary>
+        /// Stop all jobs accessing this on AudioSurace.event_OnBeforeAudioSurfacesWrite. Recommended to always get new readonly reference before starting job.
+        /// </summary>
+        public static NativeHashMap<int, int>.ReadOnly _readonlyColIdToSurfaceI => colIdToSurfaceI_native.AsReadOnly();
         private static readonly Dictionary<int, int> colIdToSurfaceI = new(_defualtColAlloc);
+
         private static NativeHashMap<int, TriRanges> colIdToTriRanges_native;
+        /// <summary>
+        /// Stop all jobs accessing this on AudioSurace.event_OnBeforeAudioSurfacesWrite. Recommended to always get new readonly reference before starting job.
+        /// </summary>
+        public static NativeHashMap<int, TriRanges>.ReadOnly _readonlyColIdToTriRanges => colIdToTriRanges_native.AsReadOnly();
         private static readonly Dictionary<int, TriRanges.Reference> colIdToTriRanges = new(_defualtColAlloc);
 
         private static NativeList<Surface> surfaces_native;
+        /// <summary>
+        /// Stop all jobs accessing this on AudioSurace.event_OnBeforeAudioSurfacesWrite. Recommended to always get new readonly reference before starting job.
+        /// </summary>
+        public static NativeArray<Surface>.ReadOnly _readonlySurfaces => surfaces_native.AsReadOnly();
         private static readonly List<Surface> surfaces = new(8);
+
         private static NativeList<SurfaceType> surfaceTypes_native;
+        /// <summary>
+        /// Stop all jobs accessing this on AudioSurace.event_OnBeforeAudioSurfacesWrite. Recommended to always get new readonly reference before starting job.
+        /// </summary>
+        public static NativeArray<SurfaceType>.ReadOnly _readonlySurfaceTypes => surfaceTypes_native.AsReadOnly();
         private static readonly List<SurfaceType> surfaceTypes = new(8);
 
         private static readonly HashSet<Collider> registeredColliders = new(_defualtColAlloc);
@@ -547,7 +544,7 @@ namespace RaytracedAudio
             if (isInitilized == false) return;
             isInitilized = false;
             SceneManager.sceneLoaded -= OnSceneLoad;
-            event_OnBeforeAudioSurfacesChange?.Invoke();//Make sure jobs aint running
+            OnBeforeAudioSurfacesWrite?.Invoke();//Make sure jobs aint running
 
             colIdToSurfaceI_native.Dispose();
             colIdToSurfaceI.Clear();
@@ -603,7 +600,7 @@ namespace RaytracedAudio
 
             int colId = col.GetInstanceID();
             AudioSurface aSurf = col.GetComponentInParent<AudioSurface>(true);
-            event_OnBeforeAudioSurfacesChange?.Invoke();//Make sure jobs aint running
+            OnBeforeAudioSurfacesWrite?.Invoke();//Make sure jobs aint running
 
             if (aSurf == null && TriRanges.TryCreateTriRanges(col, out TriRanges triRanges) == true)
             {
@@ -641,7 +638,7 @@ namespace RaytracedAudio
             if (registeredColliders.Remove(col) == false) return;
 
             int colId = col.GetInstanceID();
-            event_OnBeforeAudioSurfacesChange?.Invoke();//Make sure jobs aint running
+            OnBeforeAudioSurfacesWrite?.Invoke();//Make sure jobs aint running
 
             if (colIdToTriRanges_native.ContainsKey(colId) == true)
             {
@@ -674,16 +671,19 @@ namespace RaytracedAudio
         }
 
         /// <summary>
-        /// Returns the surface index the given collider instanceID has at the provided triangle index (Make sure to stop this job on AudioSurace.event_OnBeforeAudioSurfacesChange)
+        /// Returns the surface index the given collider instanceID has at the provided triangle index (Make sure to stop this job on AudioSurace.event_OnBeforeAudioSurfacesWrite)
         /// </summary>
-        public static int GetSurfaceI_native(int colId, int triI = -1)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int GetSurfaceI_native(int colId, int triI,
+            ref NativeHashMap<int, TriRanges>.ReadOnly colIdToTriRanges, ref NativeHashMap<int, int>.ReadOnly colIdToSurfaceI)
         {
-            if (triI < 0 || colIdToTriRanges_native.TryGetValue(colId, out TriRanges triRanges) == false)
+            if (triI < 0 || colIdToTriRanges.TryGetValue(colId, out TriRanges triRanges) == false)
             {
-                if (colIdToSurfaceI_native.TryGetValue(colId, out int surfI) == true)
+                if (colIdToSurfaceI.TryGetValue(colId, out int surfI) == true)
                     return surfI;
 
-                return AudioSettings._defualtSurfaceIndex;
+                //return AudioSettings._defualtSurfaceIndex;
+                return 0;//Cant access static AudioSettings._defualtSurfaceIndex from jobs :(
             }
 
             return triRanges.GetSurfaceI(triI);
@@ -704,12 +704,14 @@ namespace RaytracedAudio
         }
 
         /// <summary>
-        /// (Make sure to stop this job on AudioSurace.event_OnBeforeAudioSurfacesChange)
+        /// (Make sure to stop this job on AudioSurace.event_OnBeforeAudioSurfacesWrite)
         /// </summary>
-        public static Surface GetSurface_native(int surfI)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Surface GetSurface_native(int surfI, ref NativeArray<Surface>.ReadOnly surfaces)
         {
-            if (surfI < 0 || surfI >= surfaces_native.Length) return surfaces_native[AudioSettings._defualtSurfaceIndex];
-            return surfaces_native[surfI];
+            //if (surfI < 0 || surfI >= surfaces.Length) return surfaces[AudioSettings._defualtSurfaceIndex];
+            if (surfI < 0 || surfI >= surfaces.Length) return surfaces[0];//Cant access static AudioSettings._defualtSurfaceIndex from jobs :(
+            return surfaces[surfI];
         }
 
         public static SurfaceType GetSurfaceType(int surfI)
@@ -719,12 +721,14 @@ namespace RaytracedAudio
         }
 
         /// <summary>
-        /// (Make sure to stop this job on AudioSurace.event_OnBeforeAudioSurfacesChange)
+        /// (Make sure to stop this job on AudioSurace.event_OnBeforeAudioSurfacesWrite)
         /// </summary>
-        public static SurfaceType GetSurfaceType_native(int surfI)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static SurfaceType GetSurfaceType_native(int surfI, ref NativeArray<SurfaceType>.ReadOnly surfaceTypes)
         {
-            if (surfI < 0 || surfI >= surfaceTypes_native.Length) return surfaceTypes_native[AudioSettings._defualtSurfaceIndex];
-            return surfaceTypes_native[surfI];
+            //if (surfI < 0 || surfI >= surfaceTypes.Length) return surfaceTypes[AudioSettings._defualtSurfaceIndex];
+            if (surfI < 0 || surfI >= surfaceTypes.Length) return surfaceTypes[0];//Cant access static AudioSettings._defualtSurfaceIndex from jobs :(
+            return surfaceTypes[surfI];
         }
 
         #endregion Manage Surfaces

@@ -135,6 +135,11 @@ namespace RaytracedAudio
         /// Latest position of the listener
         /// </summary>
         internal static Vector3 camPos;
+        /// <summary>
+        /// Inverted, so 1.0f is no water
+        /// </summary>
+        private float underwaterAmount = 1.0f;
+        internal static float currentUnderwaterFreq = AudioSettings._noLowPassFreq;
 
         private void Update()
         {
@@ -143,14 +148,25 @@ namespace RaytracedAudio
 
             camPos = listener.transform.position;
 
-            //Tick sources
+            //Tick underwater
             float deltaTime = Time.deltaTime;
-            int aiDataI = 0;
+            underwaterAmount = Mathf.Lerp(underwaterAmount, AudioSettings._isUnderwater == false ? 1.0f : 0.0f, AudioSettings._occlusionLerpSpeed * deltaTime);
+            currentUnderwaterFreq = Mathf.Lerp(AudioSettings._underwaterLowPassFreq, AudioSettings._noLowPassFreq, underwaterAmount * underwaterAmount);
 
+            //Tick sources
+            int aiReverbDataI = 0;
+
+            AudioReverb.EndReverbCompute();
             foreach (AudioInstance ai in GetAllAudioInstancesSafe())
             {
-                ai.TickSource(deltaTime, ref aiDataI);
+                ai.TickSource(deltaTime, ref aiReverbDataI);
             }
+            AudioReverb.StartReverbCompute(deltaTime, aiReverbDataI);
+        }
+
+        private void LateUpdate()
+        {
+            AudioReverb.CompleteReverbRays();
         }
 
         private void OnDisable()
@@ -192,22 +208,12 @@ namespace RaytracedAudio
 
         public AudioInstanceWrap PlaySound(AudioReference aRef, AudioProps aProps = null)
         {
-            if (allAIs.Count >= AudioSettings._maxConcurrentAudioSources)
-            {
-                Debug.LogError("Unable to play sound because AudioSettings._maxConcurrentAudioSources has been reached!" +
-                    "Play less sounds or increase max sources in AudioSettings: " + AudioSettings._maxConcurrentAudioSources);
-                return new();
-            }
-
             //Get audio instance
             AudioConfigAsset aConfig = aRef.GetAudioConfig();
             AudioInstance ai = new()
             {
                 callback = new EVENT_CALLBACK(EventCallback),
                 clip = RuntimeManager.CreateInstance(aRef.clip),
-                state = AudioInstance.State.pendingCreation,
-                audioEffects = aConfig.audioEffects,
-                isPersistent = aConfig.persistent,
                 latestTimelineData = new(),
             };
 
@@ -218,8 +224,10 @@ namespace RaytracedAudio
 
             //Get effects inputs
             ai.ResetSource();
-            ai.hasOcclusion = ai.audioEffects.HasOcclusion();
-            ai.hasReverb = ai.audioEffects.HasReverb();
+            ai.state = AudioInstance.State.pendingCreation;
+            ai.isPersistent = aConfig.persistent;
+            ai.hasOcclusion = aConfig.audioEffects.HasOcclusion();
+            ai.hasReverb = aConfig.audioEffects.HasReverb();
 
             //Register audio instance
             ai.id = AudioInstance.nextId;
@@ -332,7 +340,7 @@ namespace RaytracedAudio
                 if (ai.GetStateSafe() == AudioInstance.State.pendingCreation)
                     ai.SetStateSafe(AudioInstance.State.pendingPlay);//We always wanna setup filter stuff but not set state if stopped manually before OnCreated()
 
-                if (ai.audioEffects.HasAny() == true)
+                if (ai.hasOcclusion == true || ai.hasReverb == true)
                 {
                     //https://bobthenameless.github.io/fmod-studio-docs/generated/FMOD_DSP_SFXREVERB.html
                     //https://bobthenameless.github.io/fmod-studio-docs/generated/FMOD_REVERB_PRESETS.html
@@ -343,16 +351,14 @@ namespace RaytracedAudio
                         return;
                     }
 
-                    RuntimeManager.CoreSystem.createDSPByType(FMOD.DSP_TYPE.LOWPASS_SIMPLE, out ai.lowpassFilter);
-                    ai.lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, 17000.0f);//Decrease based on underwater and behind wall, 400~ sounded good for water
-                    cg.addDSP(1, ai.lowpassFilter);
-
-                    if (ai.audioEffects.HasReverb() == true)
+                    if (ai.hasOcclusion == true)
                     {
-
+                        RuntimeManager.CoreSystem.createDSPByType(FMOD.DSP_TYPE.LOWPASS_SIMPLE, out ai.lowpassFilter);
+                        ai.lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, 17000.0f);//Decrease based on underwater and behind wall, 400~ sounded good for water
+                        cg.addDSP(0, ai.lowpassFilter);
                     }
 
-                    if (ai.audioEffects.HasOcclusion() == true)
+                    if (ai.hasReverb == true)
                     {
                         RuntimeManager.CoreSystem.createDSPByType(FMOD.DSP_TYPE.SFXREVERB, out ai.reverbFilter);
 
@@ -368,35 +374,10 @@ namespace RaytracedAudio
                         ai.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.LOWSHELFGAIN, 0.0f);
                         ai.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.HIGHCUT, 20.0f);
                         ai.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.EARLYLATEMIX, 96.0f);
-                        ai.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.WETLEVEL, -80.0f);
+                        ai.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.WETLEVEL, 0.0f);//-80.0f for off
                         ai.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DRYLEVEL, 0.0f);
 
-                        //decayTime, hfDecayRatio, diffusion, density, highcut, earlyLateMix, wetLevel
-
-
-                        ////Metal pipe
-                        //ss.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DECAYTIME, 2800.0f);//Increase this based on how many times we can bounce.
-                        //                                                                              //Increase based on surface prop, specific prop for this to allow for sound proofing.
-                        //                                                                              //In theory, increasing this also based on direct visible bounce count would be more correct.
-                        //                                                                              //fuck that for now tho.
-                        //ss.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.EARLYDELAY, 14.0f);//Delay before first reflection, increase based on room size.
-                        //                                                                             //Avg distance to all directly visible points?
-                        //ss.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.LATEDELAY, 21.0f);//Cant tell the difference when increasing this alone, only if increased alongside EARLYDELAY,
-                        //                                                                            //So I guess always increase both together?
-                        //
-                        ////These should be controlled by surface type
-                        //ss.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.HFREFERENCE, 5000.0f);//Always 5000
-                        //ss.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.HFDECAYRATIO, 79.0f);
-                        //ss.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DIFFUSION, 100.0f);
-                        //ss.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DENSITY, 100.0f);//Reflection brightness, lower = brighter.
-                        //ss.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.LOWSHELFFREQUENCY, 250.0f);//Always 250
-                        //ss.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.LOWSHELFGAIN, 0.0f);//Always 0
-                        //ss.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.HIGHCUT, 3400.0f);
-                        //ss.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.EARLYLATEMIX, 66.0f);
-                        //ss.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.WETLEVEL, 1.2f);
-                        //ss.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DRYLEVEL, 0.0f);
-
-                        cg.addDSP(0, ai.reverbFilter);
+                        cg.addDSP(1, ai.reverbFilter);
                     }
                 }
             }
@@ -418,7 +399,7 @@ namespace RaytracedAudio
                 if (ai.id <= 0) return;
 
                 InActivate();
-                ai.Dispose(false);
+                ai.Dispose();
                 ai.SetStateSafe(AudioInstance.State.inActive);
             }
 
@@ -428,7 +409,7 @@ namespace RaytracedAudio
                 if (ai.GetStateSafe() == AudioInstance.State.destroyed) return;
 
                 ai.SetStateSafe(AudioInstance.State.destroyed);//Must be called first to avoid potential stack overflow
-                ai.Dispose(true);
+                ai.Dispose();
 
                 lock (am.aiContainersLock)
                 {
