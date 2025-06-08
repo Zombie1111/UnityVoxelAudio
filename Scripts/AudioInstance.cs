@@ -1,7 +1,5 @@
 using UnityEngine;
-using FMODUnity;
 using FMOD.Studio;
-using UnityEditor.DeviceSimulation;
 
 namespace RaytracedAudio
 {
@@ -73,10 +71,18 @@ namespace RaytracedAudio
 
         internal struct BasicData
         {
+            internal BasicData(AudioInstance ai)
+            {
+                pos = ai.position;
+                lowpassFilter = ai.lowpassFilter;
+                clip = ai.clip;
+                direction = Vector3.zero;
+                distance = -1.0f;
+            }
+
             internal Vector3 pos;
             internal FMOD.DSP lowpassFilter;
             internal EventInstance clip;
-            internal bool isNew;
             internal Vector3 direction;
             internal float distance;
         }
@@ -86,9 +92,10 @@ namespace RaytracedAudio
         /// </summary>
         internal volatile int id = -1;
         internal int prevReverbDataI = -1;
+        internal int prevBasicDataI = -1;
         internal EventInstance clip;
         internal EVENT_CALLBACK callback;
-        internal bool hasOcclusion = true;
+        internal AudioEffects audioEffects = AudioEffects.all;
         internal bool hasReverb = true;
         internal bool isPersistent = true;
         /// <summary>
@@ -338,11 +345,12 @@ namespace RaytracedAudio
 
         internal void ResetSource()
         {
-            distance = -1.0f;
+            //distance = -1.0f;
             prevReverbDataI = -1;
+            prevBasicDataI = -1;
         }
 
-        internal void TickSource(float deltaTime, ref int aiReverbDataI)
+        internal void TickSource(float deltaTime, ref int aiReverbDataI, ref int aiBasicDataI)
         {
             //Is still valid?
             if (hadParentTrans == true && parentTrans == null)
@@ -354,7 +362,7 @@ namespace RaytracedAudio
             //Update state
             lock (selfLock)
             {
-                if (state == State.pendingPlay && (hasOcclusion == false || AudioOcclusion.hasComputedOcclusion == true))
+                if (state == State.pendingPlay && (audioEffects.HasOcclusion() == false || AudioOcclusion.hasComputedOcclusion == true))
                 {
                     clip.start();
                     InvokeAudioCallback(AudioCallback.started);
@@ -371,57 +379,35 @@ namespace RaytracedAudio
                 position = parentTrans.TransformPoint(posL);
             }
 
-            //Update effects
-            if (hasOcclusion == true)//This can be moved to job, 30 sounds no oc == 0.05ms, with oc == 0.16ms (Editor)
+            //Basic data
+            if (aiReverbDataI + 1 >= AudioSettings._maxActiveVoices)
             {
-                float dis = AudioOcclusion.SampleOcclusionAtPos(position, out Vector3 dir, out float ocAmount);
-                ocAmount = 1.0f - ocAmount;
-                float ocSpeed = AudioSettings._occlusionLerpSpeed / (1.0f + (dis / AudioSettings._voxComputeDistanceMeter));
-
-                if (distance < 0.0f)
-                {
-                    distance = dis;
-                    direction = dir;
-                }
-                else
-                {
-                    distance = Mathf.Lerp(distance, dis, AudioSettings._occlusionLerpSpeed * deltaTime);
-                    direction = Vector3.Slerp(direction, dir, AudioSettings._occlusionLerpSpeed * deltaTime);
-                }
-
-                //lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, -2409 * Mathf.Log(traceInput.resSurface.passthrough) - 217.15f);
-                lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, Mathf.Min(AudioManager.currentUnderwaterFreq,
-                     Mathf.Lerp(AudioSettings._fullyOccludedLowPassFreq, AudioSettings._noLowPassFreq, ocAmount * ocAmount)));
-            }
-            else
-            {
-                direction = (position - AudioManager.camPos).normalized;
-                distance = (position - AudioManager.camPos).magnitude;
+                Debug.LogError("Too many active voices, please increase AudioSettings.maxActiveVoices or play less audio: " + AudioSettings._maxActiveVoices);
+                return;
             }
 
-#if UNITY_EDITOR
-            if (AudioSettings._debugMode == DebugMode.drawAudioDirection)
+            if (prevBasicDataI > -1)
             {
-                Debug.DrawLine(AudioManager.camPos, AudioManager.camPos + (0.25f * distance * direction), Color.magenta, 0.1f);
+                var basicD = AudioBasics.aisBasicData_native[prevBasicDataI];
+                basicD.pos = position;
+                direction = basicD.direction;
+                distance = basicD.distance;
+                AudioBasics.aisBasicData_native[aiBasicDataI] = basicD;
             }
-#endif
+            else AudioBasics.aisBasicData_native[aiBasicDataI] = new(this);
 
-            //Apply 3D
-            float fmodDis = distance / AudioSettings._minMaxDistanceFactor;
-            fmod3D.position = (AudioManager.camPos + (direction * fmodDis)).ToFMODVector();
-            clip.set3DAttributes(fmod3D);
+            prevBasicDataI = aiBasicDataI++;
 
+            //Reverb data
             if (hasReverb == true)
             {
                 //clip.isVirtual(out bool isVirtual);//isVirtual is always false, does not work. Also tried getting it from channels but they are also always false
-
-                //if (isVirtual == false)
-                if (fmodDis <= maxDistance)//No reason to update reverb if too far away from source
+                if (distance / AudioSettings._minMaxDistanceFactor <= maxDistance)//No reason to update reverb if too far away from source
                 {
 #if UNITY_EDITOR
                     if (aiReverbDataI + 2 >= AudioSettings._maxReverbVoices)//+1 for the internal one
                     {
-                        Debug.LogError("Too many voices with reverb, please increase AudioSettings.maxReverbVoices or play less audio with reverb");
+                        Debug.LogError("Too many voices with reverb, please increase AudioSettings.maxReverbVoices or play less audio with reverb: " + (AudioSettings._maxReverbVoices - 1));
                         return;
                     }
 #endif
@@ -438,14 +424,22 @@ namespace RaytracedAudio
                 }
                 else prevReverbDataI = -1;
             }
+
+            //Debug
+#if UNITY_EDITOR
+            if (AudioSettings._debugMode == DebugMode.drawAudioDirection)
+            {
+                Debug.DrawLine(AudioManager.camPos, AudioManager.camPos + (0.25f * distance * direction), Color.magenta, 0.1f);
+            }
+#endif
         }
 
         internal void Dispose()//Destroyed state is set before calling this
         {
             if (clip.isValid() == false) return;
 
-            if ((hasOcclusion == true || hasReverb == true) && clip.getChannelGroup(out FMOD.ChannelGroup cg) == FMOD.RESULT.OK)
-            {//Its expected to fail if called before OnCreated()
+            if (clip.getChannelGroup(out FMOD.ChannelGroup cg) == FMOD.RESULT.OK)
+            {//Its expected to fail if called before OnCreated() or occlusion was toggled
                 if (lowpassFilter.hasHandle() == true)
                 {
                     cg.removeDSP(lowpassFilter);

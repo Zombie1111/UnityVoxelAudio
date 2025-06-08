@@ -3,11 +3,8 @@ using FMODUnity;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using Unity.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using zombVoxels;
-
 
 namespace RaytracedAudio
 {
@@ -97,6 +94,7 @@ namespace RaytracedAudio
             SceneManager.sceneUnloaded += OnSceneUnLoaded;
             AudioSurface.Allocate();//Accessed in AudioSettings so must be initlized before it
             AudioSettings._instance.Init();//Called with true in AudioSurface.Allocate() 
+            AudioBasics.Allocate();
             AudioReverb.Allocate();
             SetListener();
             AudioOcclusion.Init();
@@ -121,6 +119,7 @@ namespace RaytracedAudio
             isInitilized = false;
 
             AudioReverb.Dispose();
+            AudioBasics.Dispose();
             AudioSurface.Dispose();
             AudioOcclusion.Destroy();
             SceneManager.sceneUnloaded -= OnSceneUnLoaded;
@@ -156,13 +155,16 @@ namespace RaytracedAudio
 
             //Tick sources
             int aiReverbDataI = 0;
+            int aiBasicDataI = 0;
 
+            AudioBasics.EndBasicsCompute();
             AudioReverb.EndReverbCompute();
             foreach (AudioInstance ai in GetAllAudioInstancesSafe())
             {
-                ai.TickSource(deltaTime, ref aiReverbDataI);
+                ai.TickSource(deltaTime, ref aiReverbDataI, ref aiBasicDataI);
             }
             AudioReverb.StartReverbCompute(deltaTime, aiReverbDataI);
+            AudioBasics.StartBasicsCompute(deltaTime, aiBasicDataI);
         }
 
         private void LateUpdate()
@@ -230,7 +232,7 @@ namespace RaytracedAudio
             //Get effects inputs
             ai.ResetSource();
             ai.state = AudioInstance.State.pendingCreation;
-            ai.hasOcclusion = aConfig.audioEffects.HasOcclusion();
+            ai.audioEffects = aConfig.audioEffects;
             ai.hasReverb = aConfig.audioEffects.HasReverb();
 
             //Register audio instance
@@ -344,7 +346,7 @@ namespace RaytracedAudio
                 if (ai.GetStateSafe() == AudioInstance.State.pendingCreation)
                     ai.SetStateSafe(AudioInstance.State.pendingPlay);//We always wanna setup filter stuff but not set state if stopped manually before OnCreated()
 
-                if (ai.hasOcclusion == true || ai.hasReverb == true)
+                if (ai.audioEffects.HasOcclusion() == true || ai.hasReverb == true)
                 {
                     //https://bobthenameless.github.io/fmod-studio-docs/generated/FMOD_DSP_SFXREVERB.html
                     //https://bobthenameless.github.io/fmod-studio-docs/generated/FMOD_REVERB_PRESETS.html
@@ -377,7 +379,7 @@ namespace RaytracedAudio
                         cg.addDSP(0, ai.reverbFilter);
                     }
 
-                    if (ai.hasOcclusion == true)
+                    if (ai.audioEffects.HasOcclusion() == true)
                     {
                         RuntimeManager.CoreSystem.createDSPByType(FMOD.DSP_TYPE.LOWPASS_SIMPLE, out ai.lowpassFilter);
                         ai.lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, 17000.0f);//Decrease based on underwater and behind wall, 400~ sounded good for water

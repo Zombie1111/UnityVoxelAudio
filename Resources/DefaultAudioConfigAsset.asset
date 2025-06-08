@@ -14,3 +14,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   audioEffects: 0
   persistent: 0
+  isSpatialized: 1

@@ -21,6 +21,7 @@ MonoBehaviour:
   globalAudioEffects: 0
   minMaxDistanceFactor: 3.5
   stopAudioOnSceneLoad: 1
+  maxActiveVoices: 1024
   voxSnapDistance: 3
   occlusionLerpSpeed: 8
   voxComputeDistance: 70
@@ -166,4 +167,4 @@ MonoBehaviour:
   rayMaxDistance: 64
   reverbLerpSpeed: 8
   maxReverbVoices: 256
-  debugMode: 0
+  debugMode: 2

@@ -8,7 +8,6 @@ using System;
 using System.IO;
 using RaytracedAudio;
 using AudioSettings = RaytracedAudio.AudioSettings;
-using zombVoxels;
 
 namespace RaytracedAudioEditor
 {

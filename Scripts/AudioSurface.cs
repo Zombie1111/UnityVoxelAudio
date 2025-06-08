@@ -1,10 +1,8 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using Unity.Collections;
-using UnityEditor.Compilation;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;

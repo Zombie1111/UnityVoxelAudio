@@ -1,9 +1,6 @@
-using Codice.CM.Common.Checkin.Partial;
-using FMODUnity;
 using System.Collections.Generic;
 using UnityEngine;
 using zombVoxels;
-
 
 namespace RaytracedAudio
 {
@@ -48,6 +45,7 @@ namespace RaytracedAudio
             _minMaxDistanceFactor = minMaxDistanceFactor;
             _stopAudioOnSceneLoad = stopAudioOnSceneLoad;
             __globalAudioEffects = globalAudioEffects;
+            _maxActiveVoices = maxActiveVoices;
 
             //Occlusion
             _occlusionLerpSpeed = occlusionLerpSpeed;
@@ -144,7 +142,9 @@ namespace RaytracedAudio
         [Tooltip("If true non persistent audio will be stopped on SceneManager.OnSceneUnloaded")]
         [SerializeField] private bool stopAudioOnSceneLoad = true;
         internal static bool _stopAudioOnSceneLoad = true;
-
+        [SerializeField] private int maxActiveVoices = 1024;
+        internal static int _maxActiveVoices = 1024;
+        
         [Header("Audio Occlusion")]
         [Tooltip("If listener is inside solid voxels, radius in voxels to check for empty space")]
         [SerializeField] private int voxSnapDistance = 3;

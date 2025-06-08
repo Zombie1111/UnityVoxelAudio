@@ -2,7 +2,6 @@ using System;
 using UnityEngine;
 using FMODUnity;
 using FMOD.Studio;
-using FMOD;
 using Unity.Collections;
 
 namespace RaytracedAudio
