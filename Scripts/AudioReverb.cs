@@ -131,25 +131,6 @@ namespace RaytracedAudio
                     break;
             }
 
-            //float offset = 2f / _rotIterationCount;
-            //float increment = Mathf.PI * (3f - Mathf.Sqrt(5f)); // Golden angle in radians
-            //
-            //float y = ((rotIteration * offset) - 1) + (offset / 2);
-            //float r = Mathf.Sqrt(1 - y * y);
-            //float phi = rotIteration * increment;
-            //
-            //float x = Mathf.Cos(phi) * r;
-            //float z = Mathf.Sin(phi) * r;
-            //
-            //pr_job.rayRot = Quaternion.FromToRotation(Vector3.forward, new Vector3(x, y, z));
-            ////float goldenAngle = 137.50776405f * Mathf.Deg2Rad;
-            ////
-            ////pr_job.rayRot = Quaternion.Euler(
-            ////    Mathf.Sin(rotIteration * goldenAngle) * 90f,
-            ////    Mathf.Cos(rotIteration * goldenAngle) * 90f,
-            ////    (rotIteration * goldenAngle * Mathf.Rad2Deg) % 360f
-            ////);
-
             pr_job.realSourceCount = realSourceCount;
 
             //Set collect rays job
@@ -257,29 +238,34 @@ namespace RaytracedAudio
                 for (int i = 0; i < realSourceCount; i++)
                 {
                     AudioInstance.ReverbData aiD = aisReverbData_native[i];
-
                     AudioSurface.Surface surf = new(-2.0f);
-                    float totWeight = 0.0f;
 
-                    for (int rayI = 0; rayI < _axisDirCount; rayI++)
+                    if (aiD.ignoreSelfRays == false)
                     {
-                        RaycastHit hit = rayHits[(i * _axisDirCount) + rayI];
-                        if (hit.colliderInstanceID == 0)
-                        {
-                            totWeight += surf.JoinWith(skySurf);
-                            continue;
-                        }
+                        float totWeight = 0.0f;
 
-                        totWeight += surf.JoinWith(AudioSurface.GetSurface_native(
-                            AudioSurface.GetSurfaceI_native(hit.colliderInstanceID, hit.triangleIndex, ref colIdToTriRanges, ref colIdToSurfaceI), ref surfaces));
+                        for (int rayI = 0; rayI < _axisDirCount; rayI++)
+                        {
+                            RaycastHit hit = rayHits[(i * _axisDirCount) + rayI];
+                            if (hit.colliderInstanceID == 0)
+                            {
+                                totWeight += surf.JoinWith(skySurf);
+                                continue;
+                            }
+
+                            totWeight += surf.JoinWith(AudioSurface.GetSurface_native(
+                                AudioSurface.GetSurfaceI_native(hit.colliderInstanceID, hit.triangleIndex, ref colIdToTriRanges, ref colIdToSurfaceI), ref surfaces));
 
 #if UNITY_EDITOR
-                        if (debugDraw == false) continue;
-                        Debug.DrawLine(aiD.pos, hit.point, Color.blue, 0.1f);
+                            if (debugDraw == false) continue;
+                            Debug.DrawLine(aiD.pos, hit.point, Color.blue, 0.1f);
 #endif
-                    }
+                        }
 
-                    if (totWeight > 0.0f) surf.Devide(totWeight);
+                        if (totWeight > 0.0f) surf.Devide(totWeight);
+                    }
+                    else surf = surfaces[0];
+
                     if (lastSourceI != i) surf.Lerp(plSurf, 0.5f);//Blend 50% between player surroundings and source surroundings (Except for player one)
                     if (aiD.isNew == false) aiD.surf.Lerp(surf, surfLerpDelta);
                     else
@@ -293,7 +279,6 @@ namespace RaytracedAudio
                     //Apply to reverb filter
                     if (aiD.reverbFilter.hasHandle() == false) continue;//Expecting this to be false for player
 
-                    //Bounce brightness (0.0 == di0, de100: 0.5 == di50, de50, 1.0, di100, de0)
                     aiD.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DIFFUSION, Mathf.Lerp(0.0f, 100.0f, aiD.surf.brightness));
                     aiD.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DENSITY, Mathf.Lerp(100.0f, 0.0f, aiD.surf.brightness));
 
@@ -302,11 +287,12 @@ namespace RaytracedAudio
                     aiD.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.EARLYLATEMIX, Mathf.Lerp(0.0f, 66.0f, aiD.surf.tail * 2.0f));
                     aiD.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.HFDECAYRATIO, Mathf.Lerp(0.0f, 100.0f, (aiD.surf.tail - 0.5f) * 2.0f));
 
-                    //float wetL = Mathf.Lerp(-80.0f, 20.0f, traceData.resSurface.reflectness);
-                    //float wetL = Mathf.Lerp(-80.0f, 20.0f, traceData.resSurface.reflectness);
                     float wetL = 10.377f * Mathf.Log(Mathf.Clamp01(aiD.surf.reflectness) * Mathf.Clamp01(aiD.surf.reflectness)) + 95.029f;
                     aiD.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DECAYTIME, Mathf.Exp(0.0981f * wetL));
-                    //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DECAYTIME, 2.0f * Mathf.Exp(0.0906f * (wetL + 80.00001f)));
+                    aiD.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.WETLEVEL, (wetL - 80.0f) * 0.5f);
+
+                    //float mag = aiD.surf.Magnitude();
+                    //aiD.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.WETLEVEL, Mathf.Lerp(-80.0f, 0.0f, mag));
                 }
             }
         }

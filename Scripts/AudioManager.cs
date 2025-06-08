@@ -218,7 +218,9 @@ namespace RaytracedAudio
                 callback = new EVENT_CALLBACK(EventCallback),
                 clip = RuntimeManager.CreateInstance(aRef.clip),
                 latestTimelineData = new(),
-                isPersistent = aConfig.persistent
+                isPersistent = aConfig.persistent,
+                audioEffects = aConfig.audioEffects,
+                reverbIgnoreSelfRays = aConfig.reverbIgnoreSelfRays,
             };
 
             if (aConfig.isSpatialized == true) ai.clip.getMinMaxDistance(out _, out ai.maxDistance);
@@ -232,7 +234,6 @@ namespace RaytracedAudio
             //Get effects inputs
             ai.ResetSource();
             ai.state = AudioInstance.State.pendingCreation;
-            ai.audioEffects = aConfig.audioEffects;
             ai.hasReverb = aConfig.audioEffects.HasReverb();
 
             //Register audio instance

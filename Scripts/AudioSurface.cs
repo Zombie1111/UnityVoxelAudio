@@ -346,8 +346,7 @@ namespace RaytracedAudio
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal float JoinWith(Surface surf)
             {
-                //float weight = 1.0f + Math.Abs(surf.reflectness * 10.0f);//We want reflective stuff to have much higher weight since the last 0.3f besically goes from 0-100% reflectiveness
-                float weight = 1.0f + Math.Abs(surf.reflectness);
+                float weight = 1.0f - Math.Abs(surf.reflectness * 0.5f);
 
                 reflectness += surf.reflectness * weight;
                 metallicness += surf.metallicness * weight;
@@ -374,6 +373,12 @@ namespace RaytracedAudio
                 brightness = Mathf.Lerp(brightness, target.brightness, t);
                 tail = Mathf.Lerp(tail, target.tail, t);
             }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly float Magnitude()
+            {
+                return reflectness + metallicness + brightness + tail;
+            }
         }
 
         private const int _defualtColAlloc = 1024;
@@ -390,8 +395,10 @@ namespace RaytracedAudio
             {
                 triRanges = new();
                 if (col is MeshCollider mCol == false) return false;//Not a mesh collider, TriRanges is not needed
+                if (mCol.convex == true) return false;//TriRanges does not work for convex colliders
 
                 Mesh mesh = mCol.sharedMesh;
+                if (mesh == null) return false;//Missing mesh
                 int surfCount = mesh.subMeshCount;
                 if (surfCount <= 1) return false;//Only one submesh, TriRanges is overkill
 

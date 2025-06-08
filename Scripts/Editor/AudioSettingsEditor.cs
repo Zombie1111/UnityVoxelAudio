@@ -22,7 +22,7 @@ namespace RaytracedAudioEditor
         {
             var result = FMOD.Studio.System.create(out fmodSystem);
             allBusPaths.Clear();
-            
+
             if (result != FMOD.RESULT.OK) return;
 
             try
@@ -113,6 +113,12 @@ namespace RaytracedAudioEditor
             EditorGUI.indentLevel--;
             EditorGUILayout.Space();
 
+            //Default surface type must be 0
+            if (audioSettings.defaultAudioSurfaces[0].type != audioSettings.defaultSurfaceType)
+            {
+                EditorGUILayout.HelpBox("defaultSurfaceType should be at index 0 in defaultAudioSurfaces to work properly!", MessageType.Warning);
+            }
+
             //Draw the default inspector
             DrawPropertiesExcluding(serializedObject, "m_Script", "defaultAudioSurfaces");
             //DrawDefaultInspector();
@@ -132,9 +138,7 @@ namespace RaytracedAudioEditor
                 if (allBusPaths.Contains(path) == true) continue;
 
                 EditorGUILayout.Space();
-                EditorGUILayout.HelpBox(
-                    path + " is not a valid bus path!",
-                    MessageType.Warning);
+                EditorGUILayout.HelpBox(path + " is not a valid bus path!", MessageType.Warning);
             }
 
             //Count duplicates
@@ -167,7 +171,7 @@ namespace RaytracedAudioEditor
             if (AudioSettings._defaultAudioConfigAsset == null)
             {
                 EditorGUILayout.Space();
-                EditorGUILayout.HelpBox("defaultAudioConfigAsset cannot be null!",MessageType.Error);
+                EditorGUILayout.HelpBox("defaultAudioConfigAsset cannot be null!", MessageType.Error);
             }
 
             serializedObject.ApplyModifiedProperties();

@@ -61,12 +61,14 @@ namespace RaytracedAudio
                 reverbFilter = ai.reverbFilter;
                 surf = new(-2.0f);
                 isNew = true;
+                ignoreSelfRays = ai.reverbIgnoreSelfRays;
             }
 
             internal FMOD.DSP reverbFilter;
             internal Vector3 pos;
             internal AudioSurface.Surface surf;
             internal bool isNew;
+            internal bool ignoreSelfRays;
         }
 
         internal struct BasicData
@@ -96,6 +98,7 @@ namespace RaytracedAudio
         internal EventInstance clip;
         internal EVENT_CALLBACK callback;
         internal AudioEffects audioEffects = AudioEffects.all;
+        internal bool reverbIgnoreSelfRays = false;
         internal bool hasReverb = true;
         internal bool isPersistent = true;
         /// <summary>

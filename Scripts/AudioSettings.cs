@@ -144,7 +144,7 @@ namespace RaytracedAudio
         internal static bool _stopAudioOnSceneLoad = true;
         [SerializeField] private int maxActiveVoices = 1024;
         internal static int _maxActiveVoices = 1024;
-        
+
         [Header("Audio Occlusion")]
         [Tooltip("If listener is inside solid voxels, radius in voxels to check for empty space")]
         [SerializeField] private int voxSnapDistance = 3;
@@ -176,7 +176,7 @@ namespace RaytracedAudio
         }
 
         [Header("Audio Surfaces")]
-        [SerializeField] private AudioSurface.SurfaceType defaultSurfaceType = AudioSurface.SurfaceType.defualt;
+        [SerializeField] internal AudioSurface.SurfaceType defaultSurfaceType = AudioSurface.SurfaceType.defualt;
         internal static int _defualtSurfaceIndex = 0;
         [SerializeField] private bool registerAllCollidersOnSceneLoad = true;
         internal static bool _registerAllCollidersOnSceneLoad = true;

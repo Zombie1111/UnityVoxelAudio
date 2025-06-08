@@ -50,13 +50,17 @@ namespace RaytracedAudio
             bd_jobIsActive = true;
 
             //Prepare
-            voxWorldNative.Value = AudioOcclusion.voxHandler == null || AudioSettings._globalAudioEffects.HasOcclusion() == false ?
-                new() : AudioOcclusion.voxHandler._voxWorldReadonly;
+            voxWorldNative.Value = AudioOcclusion.voxHandler == null || AudioOcclusion.readFlip == null
+                || AudioSettings._globalAudioEffects.HasOcclusion() == false ? new() : AudioOcclusion.voxHandler._voxWorldReadonly;
 
-            bd_job.voxsDis = AudioOcclusion.readFlip.voxsDis;
-            bd_job.voxsDirectI = AudioOcclusion.readFlip.voxsDirectI;
+            if (AudioOcclusion.readFlip != null)
+            {
+                bd_job.voxsDis = AudioOcclusion.readFlip.voxsDis;
+                bd_job.voxsDirectI = AudioOcclusion.readFlip.voxsDirectI;
+                bd_job.camExtraDis = AudioOcclusion.readFlip.camExtraDis;
+            }
+
             bd_job.occlusionLerpDelta = AudioSettings._occlusionLerpSpeed * deltaTime;
-            bd_job.camExtraDis = AudioOcclusion.readFlip.camExtraDis;
             bd_job.currentUnderwaterFreq = AudioManager.currentUnderwaterFreq;
             bd_job.voiceCount = voiceCount;
             bd_job.camPos = AudioManager.camPos;
