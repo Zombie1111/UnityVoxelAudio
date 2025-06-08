@@ -28,9 +28,9 @@ public static class AudioReverb
         AudioSurface.OnBeforeAudioSurfacesWrite += OnBeforeAudioSurfacesWrite;
         playerSurface = new(-2.0f);
 
-        rayHits = new NativeArray<RaycastHit>(AudioSettings._maxRealVoices * _axisDirCount, Allocator.Persistent);
-        rayCommands = new NativeArray<RaycastCommand>(AudioSettings._maxRealVoices * _axisDirCount, Allocator.Persistent);
-        aisReverbData_native = new NativeArray<AudioInstance.ReverbData>(AudioSettings._maxRealVoices, Allocator.Persistent);
+        rayHits = new NativeArray<RaycastHit>(AudioSettings._maxReverbVoices * _axisDirCount, Allocator.Persistent);
+        rayCommands = new NativeArray<RaycastCommand>(AudioSettings._maxReverbVoices * _axisDirCount, Allocator.Persistent);
+        aisReverbData_native = new NativeArray<AudioInstance.ReverbData>(AudioSettings._maxReverbVoices, Allocator.Persistent);
 
         pr_job = new()
         {
@@ -59,7 +59,7 @@ public static class AudioReverb
             };
 
             UnsafeUtility.MemCpyReplicate(NativeArrayUnsafeUtility.GetUnsafePtr(rayCommands), UnsafeUtility.AddressOf(ref baseCommand),
-                UnsafeUtility.SizeOf<RaycastCommand>(), AudioSettings._maxRealVoices * _axisDirCount);
+                UnsafeUtility.SizeOf<RaycastCommand>(), AudioSettings._maxReverbVoices * _axisDirCount);
         }
 
         isInitialized = true;
@@ -83,7 +83,7 @@ public static class AudioReverb
         EndReverbCompute();
     }
 
-    private const int _rotIterationCount = 6;
+    private const int _rotIterationCount = 8;//Hardcoded 8
     private const int _raysPerThread = 100;
     private static AudioSurface.Surface playerSurface = new(-2.0f);
     private static int lastRealSourceCount = -1;
@@ -106,13 +106,52 @@ public static class AudioReverb
 
         //Set prepare rays job
         int rotIteration = Time.frameCount % _rotIterationCount;
-        float goldenAngle = 137.50776405f * Mathf.Deg2Rad;
+        switch (rotIteration)
+        {
+            case 0:
+                pr_job.rayRot = Quaternion.identity;
+                break;
+            case 1:
+                pr_job.rayRot = Quaternion.Euler(45, 45, 45);
+                break;
+            case 2:
+                pr_job.rayRot = Quaternion.Euler(-45, 45, 45);
+                break;
+            case 3:
+                pr_job.rayRot = Quaternion.Euler(45, -45, 45);
+                break;
+            case 4:
+                pr_job.rayRot = Quaternion.Euler(45, 45, -45);
+                break;
+            case 5:
+                pr_job.rayRot = Quaternion.Euler(-45, -45,-45);
+                break;
+            case 6:
+                pr_job.rayRot = Quaternion.Euler(-45, 45, 0);
+                break;
+            case 7:
+                pr_job.rayRot = Quaternion.Euler(45, -45, 0);
+                break;
+        }
 
-        pr_job.rayRot = Quaternion.Euler(
-            Mathf.Sin(rotIteration * goldenAngle) * 90f,
-            Mathf.Cos(rotIteration * goldenAngle) * 90f,
-            (rotIteration * goldenAngle * Mathf.Rad2Deg) % 360f
-        );
+        //float offset = 2f / _rotIterationCount;
+        //float increment = Mathf.PI * (3f - Mathf.Sqrt(5f)); // Golden angle in radians
+        //
+        //float y = ((rotIteration * offset) - 1) + (offset / 2);
+        //float r = Mathf.Sqrt(1 - y * y);
+        //float phi = rotIteration * increment;
+        //
+        //float x = Mathf.Cos(phi) * r;
+        //float z = Mathf.Sin(phi) * r;
+        //
+        //pr_job.rayRot = Quaternion.FromToRotation(Vector3.forward, new Vector3(x, y, z));
+        ////float goldenAngle = 137.50776405f * Mathf.Deg2Rad;
+        ////
+        ////pr_job.rayRot = Quaternion.Euler(
+        ////    Mathf.Sin(rotIteration * goldenAngle) * 90f,
+        ////    Mathf.Cos(rotIteration * goldenAngle) * 90f,
+        ////    (rotIteration * goldenAngle * Mathf.Rad2Deg) % 360f
+        ////);
 
         pr_job.realSourceCount = realSourceCount;
 
@@ -122,6 +161,10 @@ public static class AudioReverb
         cr_job.surfaces = AudioSurface._readonlySurfaces;
         cr_job.colIdToSurfaceI = AudioSurface._readonlyColIdToSurfaceI;
         cr_job.colIdToTriRanges = AudioSurface._readonlyColIdToTriRanges;
+
+#if UNITY_EDITOR
+        cr_job.debugDraw = AudioSettings._debugMode == DebugMode.drawAudioReverb;
+#endif
 
         //Run
         var prHandle = pr_job.Schedule();
@@ -198,15 +241,21 @@ public static class AudioReverb
         internal NativeArray<RaycastHit>.ReadOnly rayHits;
         internal int realSourceCount;
         internal float surfLerpDelta;
+        internal int skySurfaceI;
 
         internal NativeArray<AudioSurface.Surface>.ReadOnly surfaces;
         internal NativeHashMap<int, AudioSurface.TriRanges>.ReadOnly colIdToTriRanges;
         internal NativeHashMap<int, int>.ReadOnly colIdToSurfaceI;
 
+#if UNITY_EDITOR
+        internal bool debugDraw;
+#endif
+
         public void Execute()
         {
             AudioSurface.Surface plSurf = aisReverbData_native[realSourceCount - 1].surf;
             int lastSourceI = realSourceCount - 1;//Last is player
+            AudioSurface.Surface skySurf = AudioSurface.GetSurface_native(skySurfaceI, ref surfaces);
 
             for (int i = 0; i < realSourceCount; i++)
             {
@@ -218,10 +267,19 @@ public static class AudioReverb
                 for (int rayI = 0; rayI < _axisDirCount; rayI++)
                 {
                     RaycastHit hit = rayHits[(i * _axisDirCount) + rayI];
-                    if (hit.colliderInstanceID == 0) continue;
+                    if (hit.colliderInstanceID == 0)
+                    {
+                        totWeight += surf.JoinWith(skySurf);
+                        continue;
+                    }
 
                     totWeight += surf.JoinWith(AudioSurface.GetSurface_native(
                         AudioSurface.GetSurfaceI_native(hit.colliderInstanceID, hit.triangleIndex, ref colIdToTriRanges, ref colIdToSurfaceI), ref surfaces));
+
+#if UNITY_EDITOR
+                    if (debugDraw == false) continue;
+                    Debug.DrawLine(aiD.pos, hit.point, Color.blue, 0.1f);
+#endif
                 }
 
                 if (totWeight > 0.0f) surf.Devide(totWeight);
@@ -249,7 +307,7 @@ public static class AudioReverb
                 
                 //float wetL = Mathf.Lerp(-80.0f, 20.0f, traceData.resSurface.reflectness);
                 //float wetL = Mathf.Lerp(-80.0f, 20.0f, traceData.resSurface.reflectness);
-                float wetL = 10.377f * Mathf.Log(Mathf.Clamp01(aiD.surf.reflectness)) + 95.029f;
+                float wetL = 10.377f * Mathf.Log(Mathf.Clamp01(aiD.surf.reflectness) * Mathf.Clamp01(aiD.surf.reflectness)) + 95.029f;
                 aiD.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DECAYTIME, Mathf.Exp(0.0981f * wetL));
                 //reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DECAYTIME, 2.0f * Mathf.Exp(0.0906f * (wetL + 80.00001f)));
             }

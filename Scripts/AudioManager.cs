@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using Unity.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using zombVoxels;
 
 
 namespace RaytracedAudio
@@ -215,7 +216,11 @@ namespace RaytracedAudio
                 callback = new EVENT_CALLBACK(EventCallback),
                 clip = RuntimeManager.CreateInstance(aRef.clip),
                 latestTimelineData = new(),
+                isPersistent = aConfig.persistent
             };
+
+            if (aConfig.isSpatialized == true) ai.clip.getMinMaxDistance(out _, out ai.maxDistance);
+            else ai.maxDistance = float.MaxValue;
 
             lock (aiContainersLock)
             {
@@ -225,7 +230,6 @@ namespace RaytracedAudio
             //Get effects inputs
             ai.ResetSource();
             ai.state = AudioInstance.State.pendingCreation;
-            ai.isPersistent = aConfig.persistent;
             ai.hasOcclusion = aConfig.audioEffects.HasOcclusion();
             ai.hasReverb = aConfig.audioEffects.HasReverb();
 
@@ -351,13 +355,6 @@ namespace RaytracedAudio
                         return;
                     }
 
-                    if (ai.hasOcclusion == true)
-                    {
-                        RuntimeManager.CoreSystem.createDSPByType(FMOD.DSP_TYPE.LOWPASS_SIMPLE, out ai.lowpassFilter);
-                        ai.lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, 17000.0f);//Decrease based on underwater and behind wall, 400~ sounded good for water
-                        cg.addDSP(0, ai.lowpassFilter);
-                    }
-
                     if (ai.hasReverb == true)
                     {
                         RuntimeManager.CoreSystem.createDSPByType(FMOD.DSP_TYPE.SFXREVERB, out ai.reverbFilter);
@@ -377,7 +374,14 @@ namespace RaytracedAudio
                         ai.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.WETLEVEL, 0.0f);//-80.0f for off
                         ai.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DRYLEVEL, 0.0f);
 
-                        cg.addDSP(1, ai.reverbFilter);
+                        cg.addDSP(0, ai.reverbFilter);
+                    }
+
+                    if (ai.hasOcclusion == true)
+                    {
+                        RuntimeManager.CoreSystem.createDSPByType(FMOD.DSP_TYPE.LOWPASS_SIMPLE, out ai.lowpassFilter);
+                        ai.lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, 17000.0f);//Decrease based on underwater and behind wall, 400~ sounded good for water
+                        cg.addDSP(1, ai.lowpassFilter);
                     }
                 }
             }

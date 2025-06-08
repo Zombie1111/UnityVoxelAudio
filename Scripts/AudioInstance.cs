@@ -21,13 +21,13 @@ namespace RaytracedAudio
         /// </summary>
         public AudioInstance TryGetAudioInstance()
         {
-            if (ai == null || id != ai.id) return null;
+            if (ai == null || id != ai.id || this.ai.GetStateSafe() == AudioInstance.State.pendingStop) return null;
             return ai;
         }
 
         public bool TryGetAudioInstance(out AudioInstance ai)
         {
-            if (this.ai == null || id != this.ai.id)
+            if (this.ai == null || id != this.ai.id || this.ai.GetStateSafe() == AudioInstance.State.pendingStop)
             {
                 ai = null;
                 return false;
@@ -42,7 +42,7 @@ namespace RaytracedAudio
         /// </summary>
         public bool IsValid()
         {
-            return ai != null && id == ai.id;
+            return ai != null && id == ai.id && ai.GetStateSafe() != AudioInstance.State.pendingStop;
         }
     }
 
@@ -71,6 +71,16 @@ namespace RaytracedAudio
             internal bool isNew;
         }
 
+        internal struct BasicData
+        {
+            internal Vector3 pos;
+            internal FMOD.DSP lowpassFilter;
+            internal EventInstance clip;
+            internal bool isNew;
+            internal Vector3 direction;
+            internal float distance;
+        }
+
         /// <summary>
         /// Negative or 0 if inactive
         /// </summary>
@@ -81,6 +91,10 @@ namespace RaytracedAudio
         internal bool hasOcclusion = true;
         internal bool hasReverb = true;
         internal bool isPersistent = true;
+        /// <summary>
+        /// Is float.MaxValue if no spatializer, in fmod distance
+        /// </summary>
+        internal float maxDistance = 20.0f;
 
         /// <summary>
         /// Assign only allowed on creation
@@ -197,6 +211,7 @@ namespace RaytracedAudio
             pendingCreation = 0,
             pendingPlay = 10,
             playing = 20,
+            pendingStop = 25,
             inActive = 30,
             destroyed = 40
         }
@@ -258,7 +273,8 @@ namespace RaytracedAudio
         /// </summary>
         public bool IsPlaying()
         {
-            return GetStateSafe() == State.playing;
+            State state = GetStateSafe();
+            return state == State.playing || state == State.pendingStop;//Pending stop is still playing
         }
 
         /// <summary>
@@ -287,7 +303,8 @@ namespace RaytracedAudio
                 AudioManager.EventCallback(EVENT_CALLBACK_TYPE.STOPPED, clip.handle, System.IntPtr.Zero);
                 return;
             }
-            
+
+            if (state == State.playing) SetStateSafe(State.pendingStop);
             clip.stop(immediately == false ? FMOD.Studio.STOP_MODE.ALLOWFADEOUT
                 : FMOD.Studio.STOP_MODE.IMMEDIATE);
         }
@@ -355,7 +372,7 @@ namespace RaytracedAudio
             }
 
             //Update effects
-            if (hasOcclusion == true)//This can be moved to job, NOT WORTH IT FOR NOW THO!
+            if (hasOcclusion == true)//This can be moved to job, 30 sounds no oc == 0.05ms, with oc == 0.16ms (Editor)
             {
                 float dis = AudioOcclusion.SampleOcclusionAtPos(position, out Vector3 dir, out float ocAmount);
                 ocAmount = 1.0f - ocAmount;
@@ -390,19 +407,21 @@ namespace RaytracedAudio
 #endif
 
             //Apply 3D
-            fmod3D.position = (AudioManager.camPos + (direction * (distance / AudioSettings._minMaxDistanceFactor))).ToFMODVector();
+            float fmodDis = distance / AudioSettings._minMaxDistanceFactor;
+            fmod3D.position = (AudioManager.camPos + (direction * fmodDis)).ToFMODVector();
             clip.set3DAttributes(fmod3D);
 
             if (hasReverb == true)
             {
-                clip.isVirtual(out bool isVirtual);
+                //clip.isVirtual(out bool isVirtual);//isVirtual is always false, does not work. Also tried getting it from channels but they are also always false
 
-                if (isVirtual == false)
+                //if (isVirtual == false)
+                if (fmodDis <= maxDistance)//No reason to update reverb if too far away from source
                 {
 #if UNITY_EDITOR
-                    if (aiReverbDataI + 2 >= AudioSettings._maxRealVoices)//+1 for the internal one
+                    if (aiReverbDataI + 2 >= AudioSettings._maxReverbVoices)//+1 for the internal one
                     {
-                        Debug.LogError("More real voices than _maxRealVoices provided by FMOD, how??? (AudioReverb wont work properly)");
+                        Debug.LogError("Too many voices with reverb, please increase AudioSettings.maxReverbVoices or play less audio with reverb");
                         return;
                     }
 #endif

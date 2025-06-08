@@ -1318,7 +1318,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &1367513697
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1331,8 +1331,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8650c1727f2a2ee4aa91f14866d527d8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  delay: 0.1
-  soundCount: 30
+  delay: 0.5
+  soundCount: 1
   aaudio:
     clip:
       Guid:
@@ -1351,7 +1351,7 @@ Transform:
   m_GameObject: {fileID: 1367513696}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 3.9463625, y: 4.678316, z: -4.713005}
+  m_LocalPosition: {x: 27.77, y: 31.5, z: 58.2}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

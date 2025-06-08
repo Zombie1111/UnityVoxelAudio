@@ -186,8 +186,7 @@ namespace RaytracedAudio
             carpet = 7,
             glass = 8,
             plastic = 9,
-
-
+            sky = 10,//If rays does not hit anything
         }
 
         internal static readonly SurfaceConfig[] defualtInitSurfaces = new SurfaceConfig[]
@@ -202,13 +201,13 @@ namespace RaytracedAudio
             {
                 type = SurfaceType.steel,
                 materialNames = new string[] { "steel", "pipe", "container", "barrel" },
-                surface = new Surface() { reflectness = 0.9f, metallicness = 0.4f, brightness = 0.9f, tail = 0.5f }
+                surface = new Surface() { reflectness = 0.55f, metallicness = 0.2f, brightness = 0.6f, tail = 0.5f }
             },
             new()
             {
                 type = SurfaceType.metal,
                 materialNames = new string[] { "metal", "gold", "iron", "wire", "net" },
-                surface = new Surface() { reflectness = 0.85f, metallicness = 0.4f, brightness = 1.0f, tail = 0.7f }
+                surface = new Surface() { reflectness = 0.55f, metallicness = 0.3f, brightness = 0.6f, tail = 0.7f }
             },
             new()
             {
@@ -251,6 +250,12 @@ namespace RaytracedAudio
                 type = SurfaceType.plastic,
                 materialNames = new string[] { "plastic", "bag", "keyboard", "mouse", "controller" },
                 surface = new Surface() { reflectness = 0.5f, metallicness = 0.0f, brightness = 0.5f, tail = 0.2f }
+            },
+            new()
+            {
+                type = SurfaceType.sky,
+                materialNames = new string[] { },
+                surface = new Surface() { reflectness = 0.0f, metallicness = 0.0f, brightness = 0.5f, tail = 0.0f }
             },
         };
 

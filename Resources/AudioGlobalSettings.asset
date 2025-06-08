@@ -47,7 +47,7 @@ MonoBehaviour:
     - container
     - barrel
     surface:
-      reflectness: 0.45
+      reflectness: 0.55
       metallicness: 0.2
       brightness: 0.6
       tail: 1
@@ -59,7 +59,7 @@ MonoBehaviour:
     - wire
     - net
     surface:
-      reflectness: 0.4
+      reflectness: 0.55
       metallicness: 0.3
       brightness: 0.6
       tail: 1
@@ -153,9 +153,17 @@ MonoBehaviour:
       metallicness: 0
       brightness: 0.5
       tail: 0.2
+  - type: 10
+    materialNames: []
+    surface:
+      reflectness: 0
+      metallicness: 0
+      brightness: 0.5
+      tail: 0
   mask:
     serializedVersion: 2
     m_Bits: 4294967295
   rayMaxDistance: 64
   reverbLerpSpeed: 8
-  debugMode: 2
+  maxReverbVoices: 256
+  debugMode: 0

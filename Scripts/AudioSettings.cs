@@ -59,10 +59,11 @@ namespace RaytracedAudio
             _underwaterLowPassFreq = underwaterLowPassFreq;
             _voxSnapDistance = voxSnapDistance;
 
-            //Tracing
+            //Reverb
             _reverbLerpSpeed = reverbLerpSpeed;
             _rayMaxDistance = rayMaxDistance;
             _mask = mask;
+            _maxReverbVoices = maxReverbVoices + 1;//+1 for internal usage
 
             //Surface
             _registerAllCollidersOnSceneLoad = registerAllCollidersOnSceneLoad;
@@ -81,13 +82,6 @@ namespace RaytracedAudio
                 }
 
                 _defualtSurfaceIndex = AudioSurface.GetSurfaceI(defaultSurfaceType);
-            }
-
-            //Voices
-            if (Application.isPlaying == true)
-            {
-                RuntimeManager.CoreSystem.getSoftwareChannels(out int maxRealVoices);
-                _maxRealVoices = maxRealVoices + 1;//+1 for internal usage
             }
 
             busPathToBus.Clear();
@@ -150,7 +144,6 @@ namespace RaytracedAudio
         [Tooltip("If true non persistent audio will be stopped on SceneManager.OnSceneUnloaded")]
         [SerializeField] private bool stopAudioOnSceneLoad = true;
         internal static bool _stopAudioOnSceneLoad = true;
-        internal static int _maxRealVoices = 65;
 
         [Header("Audio Occlusion")]
         [Tooltip("If listener is inside solid voxels, radius in voxels to check for empty space")]
@@ -189,7 +182,7 @@ namespace RaytracedAudio
         internal static bool _registerAllCollidersOnSceneLoad = true;
         [SerializeField] internal AudioSurface.SurfaceConfig[] defaultAudioSurfaces = new AudioSurface.SurfaceConfig[0];
 
-        [Header("Tracing")]
+        [Header("Reverb")]
         [Tooltip("Layers that has solid voxels, usually also player collidable")]
         [SerializeField] private LayerMask mask = Physics.AllLayers;
         internal static LayerMask _mask = Physics.AllLayers;
@@ -197,6 +190,8 @@ namespace RaytracedAudio
         internal static float _rayMaxDistance = 64.0f;
         [SerializeField] private float reverbLerpSpeed = 8.0f;
         internal static float _reverbLerpSpeed = 8.0f;
+        [SerializeField] private int maxReverbVoices = 256;
+        internal static int _maxReverbVoices = 257;
 
 #if UNITY_EDITOR
         [Header("Debug")]

@@ -332,6 +332,7 @@ namespace RaytracedAudio
         none,
         drawAudioOcclusion,
         drawAudioDirection,
+        drawAudioReverb,
     }
 #endif
 
