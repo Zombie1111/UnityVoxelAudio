@@ -1,5 +1,6 @@
 # UnityVoxelAudio
-Audio manager and voxel based realtime audio occlusion and reverb. Dynamic echo, muffling and environment-aware spatialization
+Audio manager and voxel based realtime audio occlusion and reverb.
+- Dynamic echo, muffling and environment-aware spatialization
 - Simple API to play and configure sounds, most FMOD features can be accessed through the API.
 
 (Add image or audio clip here later)
@@ -7,7 +8,9 @@ Audio manager and voxel based realtime audio occlusion and reverb. Dynamic echo,
 ## Performance
 
 Main thread cost for 200 looping sounds with reverb + occlusion:  Initial (Starting all sounds at once) ~1.26ms | Constant ~0.18ms
+
 Computing reverb + occlusion will consume 1 worker thread almost constantly.
+
 Normal FMOD cost + extra reverb and lowpass filter for every EventInstance.
 
 ## Instructions
