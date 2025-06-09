@@ -167,4 +167,4 @@ MonoBehaviour:
   rayMaxDistance: 64
   reverbLerpSpeed: 8
   maxReverbVoices: 256
-  debugMode: 2
+  debugMode: 0

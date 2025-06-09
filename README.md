@@ -3,7 +3,7 @@ Audio manager and voxel based realtime audio occlusion and reverb.
 - Dynamic echo, muffling and environment-aware spatialization
 - Simple API to play and configure sounds, most FMOD features can be accessed through the API.
 
-(Add image or audio clip here later)
+https://github.com/user-attachments/assets/8cd76163-c5bc-4fc3-b8ea-d58188ab7721
 
 ## Performance
 
@@ -22,7 +22,7 @@ Normal FMOD cost + extra reverb and lowpass filter for every EventInstance.
 <li>Collections 2.1.4</li>
 <li>Mathematics 1.2.6</li>
 <li>FMOD 2.3.7</li>
-<li>UnityVoxelSystem LATEST: https://github.com/Zombie1111/UnityVoxelSystem?tab=readme-ov-file</li>
+<li>UnityVoxelSystem LATEST: https://github.com/Zombie1111/UnityVoxelSystem</li>
 </ul>
 
 **General Setup**
