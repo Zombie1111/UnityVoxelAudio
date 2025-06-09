@@ -5,7 +5,7 @@ using Unity.Jobs;
 using UnityEngine;
 using zombVoxels;
 
-namespace RaytracedAudio
+namespace VoxelAudio
 {
     public static class AudioReverb
     {

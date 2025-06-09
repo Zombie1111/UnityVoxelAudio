@@ -4,7 +4,7 @@ using FMODUnity;
 using FMOD.Studio;
 using Unity.Collections;
 
-namespace RaytracedAudio
+namespace VoxelAudio
 {
     #region Bus Config
     [System.Serializable]

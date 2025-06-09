@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace RaytracedAudio
+namespace VoxelAudio
 {
     public class AudioManager : MonoBehaviour
     {

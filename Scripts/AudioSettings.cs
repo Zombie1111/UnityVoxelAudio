@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using zombVoxels;
 
-namespace RaytracedAudio
+namespace VoxelAudio
 {
     public class AudioSettings : ScriptableObject
     {

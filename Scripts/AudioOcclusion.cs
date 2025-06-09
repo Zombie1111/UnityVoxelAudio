@@ -12,7 +12,7 @@ using Unity.Mathematics;
 using UnityEditor;
 #endif
 
-namespace RaytracedAudio
+namespace VoxelAudio
 {
     internal class AudioOcclusion
     {

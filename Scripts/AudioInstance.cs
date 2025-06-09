@@ -1,7 +1,7 @@
 using UnityEngine;
 using FMOD.Studio;
 
-namespace RaytracedAudio
+namespace VoxelAudio
 {
     public readonly struct AudioInstanceWrap//We cant use AudioInstance directly because it may be reused so the user accidentally sets another eventInstance
     {

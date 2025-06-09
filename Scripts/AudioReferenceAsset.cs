@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace RaytracedAudio
+namespace VoxelAudio
 {
     [CreateAssetMenu(menuName = "Audio/Audio Reference Asset")]
     public class AudioReferenceAsset : ScriptableObject

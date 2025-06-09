@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEditor;
 #endif
 
-namespace RaytracedAudio
+namespace VoxelAudio
 {
     public class AudioPlayer : MonoBehaviour
     {

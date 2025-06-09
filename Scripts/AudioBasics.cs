@@ -7,7 +7,7 @@ using Unity.Mathematics;
 using UnityEngine;
 using zombVoxels;
 
-namespace RaytracedAudio
+namespace VoxelAudio
 {
     public static class AudioBasics
     {

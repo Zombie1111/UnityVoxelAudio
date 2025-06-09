@@ -2,10 +2,10 @@ using Codice.Client.BaseCommands;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using RaytracedAudio;
-using AudioSettings = RaytracedAudio.AudioSettings;
+using VoxelAudio;
+using AudioSettings = VoxelAudio.AudioSettings;
 
-namespace RaytracedAudio_demo
+namespace VoxelAudio_demo
 {
     public class RADemo_helpers : MonoBehaviour
     {

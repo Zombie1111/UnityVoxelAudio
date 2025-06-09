@@ -1,7 +1,7 @@
 using UnityEngine;
-using RaytracedAudio;
+using VoxelAudio;
 
-namespace RaytracedAudio_demo
+namespace VoxelAudio_demo
 {
     public class RADemo_performanceTest : MonoBehaviour
     {

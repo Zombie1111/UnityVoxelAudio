@@ -7,7 +7,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 
-namespace RaytracedAudio
+namespace VoxelAudio
 {
     public class AudioSurface : MonoBehaviour
     {

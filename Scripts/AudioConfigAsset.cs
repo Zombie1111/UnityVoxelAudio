@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace RaytracedAudio
+namespace VoxelAudio
 {
     [CreateAssetMenu(menuName = "Audio/Audio Config Asset")]
     public class AudioConfigAsset : ScriptableObject

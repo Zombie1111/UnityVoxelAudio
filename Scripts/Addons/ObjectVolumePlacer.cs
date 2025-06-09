@@ -1,10 +1,8 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-using RaytracedAudio;
+using VoxelAudio;
 using UnityEditor;
 
-namespace RaytracedAudioAddons
+namespace VoxelAudioAddons
 {
     public class ObjectVolumePlacer : MonoBehaviour
     {

@@ -6,10 +6,10 @@ using System.Linq;
 using FMODUnity;
 using System;
 using System.IO;
-using RaytracedAudio;
-using AudioSettings = RaytracedAudio.AudioSettings;
+using VoxelAudio;
+using AudioSettings = VoxelAudio.AudioSettings;
 
-namespace RaytracedAudioEditor
+namespace VoxelAudioEditor
 {
     [CustomEditor(typeof(AudioSettings))]
     public class AudioSettingsEditor : Editor
