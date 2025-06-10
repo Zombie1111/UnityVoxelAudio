@@ -7,7 +7,7 @@ using zombVoxels;
 
 namespace VoxelAudio
 {
-    public static class AudioReverb
+    internal static class AudioReverb
     {
         /// <summary>
         /// Last assigned one is always player cam
@@ -139,6 +139,7 @@ namespace VoxelAudio
             cr_job.surfaces = AudioSurface._readonlySurfaces;
             cr_job.colIdToSurfaceI = AudioSurface._readonlyColIdToSurfaceI;
             cr_job.colIdToTriRanges = AudioSurface._readonlyColIdToTriRanges;
+            cr_job.skySurfaceI = AudioSurface.GetSurfaceI(AudioSurface.SurfaceType.sky);
 
 #if UNITY_EDITOR
             cr_job.debugDraw = AudioSettings._debugMode == DebugMode.drawAudioReverb;

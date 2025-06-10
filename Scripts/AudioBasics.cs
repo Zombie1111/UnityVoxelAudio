@@ -9,7 +9,7 @@ using zombVoxels;
 
 namespace VoxelAudio
 {
-    public static class AudioBasics
+    internal static class AudioBasics
     {
         internal static NativeArray<AudioInstance.BasicData> aisBasicData_native;
         private static NativeReference<VoxWorld> voxWorldNative;
@@ -123,27 +123,29 @@ namespace VoxelAudio
                     {
                         float dis = SampleOcclusionAtPos(bd.pos, vOffsets, vWorld, out Vector3 dir, out float ocAmount);
                         ocAmount = 1.0f - ocAmount;
-                        float ocSpeed = occlusionLerpDelta / (1.0f + (dis / voxComputeDistanceMeter));
 
                         if (bd.distance < 0.0f)
                         {
                             bd.distance = dis;
                             bd.direction = dir;
+                            bd.occlusion = ocAmount;
                         }
                         else
                         {
+                            bd.occlusion = Mathf.Lerp(bd.occlusion, ocAmount, occlusionLerpDelta);
                             bd.distance = Mathf.Lerp(bd.distance, dis, occlusionLerpDelta);
-                            bd.direction = Vector3.Slerp(bd.direction, dir, occlusionLerpDelta);
+                            bd.direction = Vector3.Slerp(bd.direction, dir, occlusionLerpDelta / (1.0f + (dis / voxComputeDistanceMeter)));
                         }
 
                         //lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, -2409 * Mathf.Log(traceInput.resSurface.passthrough) - 217.15f);
                         bd.lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, Mathf.Min(currentUnderwaterFreq,
-                             Mathf.Lerp(fullyOccludedLowPassFreq, AudioSettings._noLowPassFreq, ocAmount * ocAmount)));
+                             Mathf.Lerp(fullyOccludedLowPassFreq, AudioSettings._noLowPassFreq, bd.occlusion * bd.occlusion)));
                     }
                     else
                     {
                         bd.direction = (bd.pos - camPos).normalized;
                         bd.distance = (bd.pos - camPos).magnitude;
+                        bd.occlusion = 1.0f;
                     }
 
                     //Apply 3D
@@ -173,15 +175,15 @@ namespace VoxelAudio
 
                 //Get source vox
                 int voxI = VoxHelpFunc.PosToWVoxIndex_snapped(pos, vWorld, out Vector3 snappedPos, 1);
-                if (camExtraDis > 0.0f && snappedPos != pos)
+                ushort vDis = voxsDis[voxI];
+
+                if ((camExtraDis > 0.0f && snappedPos != pos) || vDis < 1)
                 {
-                    //Both sample pos and cam is outside grid
+                    //Both sample pos and cam is outside grid or we are inside audio source
                     resultDirection = (pos - camPos).normalized;
                     occludedAmount = 0.0f;
                     return Vector3.Distance(pos, camPos);
                 }
-
-                ushort vDis = voxsDis[voxI];
 
                 if (vDis > voxComputeDistanceVox)
                 {
@@ -220,7 +222,7 @@ namespace VoxelAudio
                         int vI = voxI + (vOffsets[i] * step);
                         if (VoxHelpBurst.IsWVoxIndexValidFast(vI, vWorld) == false) continue;
 
-                        ushort vD = voxsDis[vI];
+                        ushort vD = voxsDis[vI];//Should be impossible for it to be 0
                         if (math.abs(vD - vDis) > step * 9) continue;
 
                         int vDI = voxsDirectI[vI];

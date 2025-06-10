@@ -136,7 +136,7 @@ namespace VoxelAudio
             /// </summary>
             internal int Register()
             {
-                int newSurfI = surface.Register(type, surfaceTypeToSurfaceI.TryGetValue(type, out int surfI) == true ? surfI : -1);
+                int newSurfI = surface.Register(type, surfaceTypeToSurfaceI.TryGetValue(type, out int surfI) == true ? surfI : -1, true);
                 surfaceTypeToSurfaceI[type] = newSurfI;
 
                 if (materialNames == null) return newSurfI;
@@ -150,15 +150,17 @@ namespace VoxelAudio
             }
         }
 
-        private static int GetSurfaceI(string name)
+        private static int GetSurfaceI(string name, int gameobjectLayer = -1)
         {
+            if (AudioSettings._noAudioSurfaceNeededLayers.Contains(gameobjectLayer) == true) return AudioSettings._defualtSurfaceIndex;
+
             foreach (var nameSurfaceI in materialNamesToSurfaceI)
             {
                 if (name.Contains(nameSurfaceI.Key, StringComparison.InvariantCultureIgnoreCase) == false) continue;
                 return nameSurfaceI.Value;
             }
 
-            Debug.LogWarning(name + " does not exist in _materialNamesToSurfaceI, using _defualtSurfaceIndex instead");
+            Debug.LogWarning(name + " does not exist in _materialNamesToSurfaceI, using _defualtSurfaceIndex instead: " + gameobjectLayer);
             return AudioSettings._defualtSurfaceIndex;
         }
 
@@ -185,6 +187,8 @@ namespace VoxelAudio
             glass = 8,
             plastic = 9,
             sky = 10,//If rays does not hit anything
+
+            sand = 11,
         }
 
         internal static readonly SurfaceConfig[] defualtInitSurfaces = new SurfaceConfig[]
@@ -255,16 +259,27 @@ namespace VoxelAudio
                 materialNames = new string[] { },
                 surface = new Surface() { reflectness = 0.0f, metallicness = 0.0f, brightness = 0.5f, tail = 0.0f }
             },
+            new()
+            {
+                type = SurfaceType.sand,
+                materialNames = new string[] { },
+                surface = new Surface() { reflectness = 0.0f, metallicness = 0.0f, brightness = 0.5f, tail = 0.0f }
+            },
         };
 
         #endregion Surface Types
 
-        public delegate void Even_OnBeforeAudioSurfacesWrite();
+        public delegate void Event_OnBeforeAudioSurfacesWrite();
         /// <summary>
         /// Invoked before any audio surfaces are changed to make sure no jobs are accessing the native surface containers
         /// </summary>
-        public static event Even_OnBeforeAudioSurfacesWrite OnBeforeAudioSurfacesWrite;
+        public static event Event_OnBeforeAudioSurfacesWrite OnBeforeAudioSurfacesWrite;
 
+        public delegate void Event_OnRegisterNewSurfaceIndex(SurfaceType surfType, int surfI, bool wasSurfaceConfig);
+        /// <summary>
+        /// Invoked when a new surface gets registered to the given index. Multiple indexes may have the same surfaceType
+        /// </summary>
+        public static event Event_OnRegisterNewSurfaceIndex OnRegisteredNewSurfaceIndex;
 
 
         [System.Serializable]
@@ -300,7 +315,7 @@ namespace VoxelAudio
             /// Registers this with the given type and returns the surface index it got registered to.
             /// If surfI >= 0 and in range, overrides existing surface at that index.
             /// </summary>
-            public readonly int Register(SurfaceType type, int surfI = -1)
+            public readonly int Register(SurfaceType type, int surfI = -1, bool wasSurfaceConfig = false)
             {
                 OnBeforeAudioSurfacesWrite?.Invoke();//Make sure jobs aint running
 
@@ -310,6 +325,8 @@ namespace VoxelAudio
                     surfaces_native[surfI] = this;
                     surfaceTypes[surfI] = type;
                     surfaceTypes_native[surfI] = type;
+
+                    OnRegisteredNewSurfaceIndex?.Invoke(type, surfI, wasSurfaceConfig);
                     return surfI;
                 }
 
@@ -319,6 +336,7 @@ namespace VoxelAudio
                 surfaceTypes.Add(type);
                 surfaceTypes_native.Add(type);
 
+                OnRegisteredNewSurfaceIndex?.Invoke(type, surfI, wasSurfaceConfig);
                 return surfI;
             }
 
@@ -408,6 +426,8 @@ namespace VoxelAudio
                     return false;//Expecting mesh colliders with submeshes to always have a renderer attatched to it
                 }
 
+                int gLayer = col.gameObject.layer;
+
                 if (surfCount > _maxSurfaceTypesPerCol)
                 {
                     Debug.Log((_maxSurfaceTypesPerCol - surfCount) + " materials will be exluded from " + col.transform.name
@@ -437,7 +457,7 @@ namespace VoxelAudio
                         }
 
                         SubMeshDescriptor subM = mesh.GetSubMesh(i);
-                        triRanges.surfaceIs[i] = AudioSurface.GetSurfaceI(mats[i].name);
+                        triRanges.surfaceIs[i] = AudioSurface.GetSurfaceI(mats[i].name, gLayer);
                         triRanges.mins[i] = subM.indexStart;
                         triRanges.maxs[i] = subM.indexStart + subM.indexCount;
                     }
@@ -520,6 +540,7 @@ namespace VoxelAudio
         /// </summary>
         public static NativeArray<Surface>.ReadOnly _readonlySurfaces => surfaces_native.AsReadOnly();
         private static readonly List<Surface> surfaces = new(8);
+        public static int _surfaceCount => surfaces.Count;
 
         private static NativeList<SurfaceType> surfaceTypes_native;
         /// <summary>
@@ -529,10 +550,10 @@ namespace VoxelAudio
         private static readonly List<SurfaceType> surfaceTypes = new(8);
 
         private static readonly HashSet<Collider> registeredColliders = new(_defualtColAlloc);
-        private static readonly Dictionary<string, int> materialNamesToSurfaceI = new(16);
-        private static readonly Dictionary<SurfaceType, int> surfaceTypeToSurfaceI = new(8);
+        private static readonly Dictionary<string, int> materialNamesToSurfaceI = new(32);
+        private static readonly Dictionary<SurfaceType, int> surfaceTypeToSurfaceI = new(16);
 
-        public static bool isInitilized = false;
+        internal static bool isInitilized = false;
 
         internal static void Allocate()//Called before AudioSettings.Init();
         {
@@ -606,6 +627,7 @@ namespace VoxelAudio
 
         public static void RegisterCollider(Collider col)
         {
+            if (col.isTrigger == true) return;
             if (registeredColliders.Add(col) == false) return;
 
             int colId = col.GetInstanceID();
@@ -634,9 +656,9 @@ namespace VoxelAudio
                     {
                         surfI = AudioSettings._defualtSurfaceIndex;
                     }
-                    else surfI = GetSurfaceI(col.sharedMaterial.name);
+                    else surfI = GetSurfaceI(col.sharedMaterial.name, col.gameObject.layer);
                 }
-                else surfI = GetSurfaceI(rend.sharedMaterial.name);
+                else surfI = GetSurfaceI(rend.sharedMaterial.name, rend.gameObject.layer);
             }
 
             colIdToSurfaceI_native.Add(colId, surfI);
@@ -692,7 +714,6 @@ namespace VoxelAudio
                 if (colIdToSurfaceI.TryGetValue(colId, out int surfI) == true)
                     return surfI;
 
-                //return AudioSettings._defualtSurfaceIndex;
                 return 0;//Cant access static AudioSettings._defualtSurfaceIndex from jobs :(
             }
 
@@ -719,7 +740,6 @@ namespace VoxelAudio
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Surface GetSurface_native(int surfI, ref NativeArray<Surface>.ReadOnly surfaces)
         {
-            //if (surfI < 0 || surfI >= surfaces.Length) return surfaces[AudioSettings._defualtSurfaceIndex];
             if (surfI < 0 || surfI >= surfaces.Length) return surfaces[0];//Cant access static AudioSettings._defualtSurfaceIndex from jobs :(
             return surfaces[surfI];
         }
@@ -736,7 +756,6 @@ namespace VoxelAudio
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static SurfaceType GetSurfaceType_native(int surfI, ref NativeArray<SurfaceType>.ReadOnly surfaceTypes)
         {
-            //if (surfI < 0 || surfI >= surfaceTypes.Length) return surfaceTypes[AudioSettings._defualtSurfaceIndex];
             if (surfI < 0 || surfI >= surfaceTypes.Length) return surfaceTypes[0];//Cant access static AudioSettings._defualtSurfaceIndex from jobs :(
             return surfaceTypes[surfI];
         }

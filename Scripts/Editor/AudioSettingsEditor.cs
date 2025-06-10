@@ -12,7 +12,7 @@ using AudioSettings = VoxelAudio.AudioSettings;
 namespace VoxelAudioEditor
 {
     [CustomEditor(typeof(AudioSettings))]
-    public class AudioSettingsEditor : Editor
+    internal class AudioSettingsEditor : Editor
     {
         private FMOD.Studio.System fmodSystem;
         private readonly HashSet<string> allBusPaths = new();
@@ -177,7 +177,7 @@ namespace VoxelAudioEditor
             serializedObject.ApplyModifiedProperties();
         }
 
-        [MenuItem("Tools/Raytraced Audio/Edit Settings", priority = 0)]
+        [MenuItem("Tools/Voxel Audio/Edit Settings", priority = 0)]
         public static void EditSettings()
         {
             Selection.activeObject = AudioSettings._instance;

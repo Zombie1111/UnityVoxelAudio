@@ -80,6 +80,7 @@ namespace VoxelAudio
                 clip = ai.clip;
                 direction = Vector3.zero;
                 distance = -1.0f;
+                occlusion = 1.0f;
             }
 
             internal Vector3 pos;
@@ -87,6 +88,10 @@ namespace VoxelAudio
             internal EventInstance clip;
             internal Vector3 direction;
             internal float distance;
+            /// <summary>
+            /// Reversed so 1.0f == no occlusion
+            /// </summary>
+            internal float occlusion;
         }
 
         /// <summary>

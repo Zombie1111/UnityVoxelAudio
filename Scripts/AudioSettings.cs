@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using zombVoxels;
 
@@ -64,6 +65,7 @@ namespace VoxelAudio
             _maxReverbVoices = maxReverbVoices + 1;//+1 for internal usage
 
             //Surface
+            _noAudioSurfaceNeededLayers = noAudioSurfaceNeededLayers.ToHashSet();
             _registerAllCollidersOnSceneLoad = registerAllCollidersOnSceneLoad;
 
             if (Application.isPlaying == true && AudioSurface.isInitilized == true)
@@ -181,6 +183,9 @@ namespace VoxelAudio
         [SerializeField] private bool registerAllCollidersOnSceneLoad = true;
         internal static bool _registerAllCollidersOnSceneLoad = true;
         [SerializeField] internal AudioSurface.SurfaceConfig[] defaultAudioSurfaces = new AudioSurface.SurfaceConfig[0];
+        [Tooltip("Colliders with any of these layers may not be assigned a audio surface")]
+        [SerializeField] private List<int> noAudioSurfaceNeededLayers = new();
+        internal static HashSet<int> _noAudioSurfaceNeededLayers = new();
 
         [Header("Reverb")]
         [Tooltip("Layers that has solid voxels, usually also player collidable")]

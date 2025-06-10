@@ -27,7 +27,7 @@ namespace VoxelAudio
 #endif
 
         private static AudioManager instance;
-        internal static AudioManager _instance
+        public static AudioManager _instance
         {
             get
             {
@@ -100,6 +100,14 @@ namespace VoxelAudio
             AudioOcclusion.Init();
 
             isInitilized = true;
+        }
+
+        /// <summary>
+        /// Makes sure the voxel audio system is initilized, accessing _instance will also initilize it
+        /// </summary>
+        public static void Initilize()
+        {
+            _instance.Init();
         }
 
         private void OnSceneUnLoaded(Scene scene)//We cant stop in OnSceneloaded since it runs after Awake()
