@@ -353,7 +353,6 @@ namespace VoxelAudio
 
         internal void ResetSource()
         {
-            //distance = -1.0f;
             prevReverbDataI = -1;
             prevBasicDataI = -1;
         }
@@ -388,7 +387,7 @@ namespace VoxelAudio
             }
 
             //Basic data
-            if (aiReverbDataI + 1 >= AudioSettings._maxActiveVoices)
+            if (aiBasicDataI + 1 >= AudioSettings._maxActiveVoices)
             {
                 Debug.LogError("Too many active voices, please increase AudioSettings.maxActiveVoices or play less audio: " + AudioSettings._maxActiveVoices);
                 return;
@@ -412,13 +411,11 @@ namespace VoxelAudio
                 //clip.isVirtual(out bool isVirtual);//isVirtual is always false, does not work. Also tried getting it from channels but they are also always false
                 if (distance / AudioSettings._minMaxDistanceFactor <= maxDistance)//No reason to update reverb if too far away from source
                 {
-#if UNITY_EDITOR
                     if (aiReverbDataI + 2 >= AudioSettings._maxReverbVoices)//+1 for the internal one
                     {
                         Debug.LogError("Too many voices with reverb, please increase AudioSettings.maxReverbVoices or play less audio with reverb: " + (AudioSettings._maxReverbVoices - 1));
                         return;
                     }
-#endif
 
                     if (prevReverbDataI > -1)
                     {

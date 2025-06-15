@@ -137,7 +137,6 @@ namespace VoxelAudio
                             bd.direction = Vector3.Slerp(bd.direction, dir, occlusionLerpDelta / (1.0f + (dis / voxComputeDistanceMeter)));
                         }
 
-                        //lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, -2409 * Mathf.Log(traceInput.resSurface.passthrough) - 217.15f);
                         bd.lowpassFilter.setParameterFloat((int)FMOD.DSP_LOWPASS_SIMPLE.CUTOFF, Mathf.Min(currentUnderwaterFreq,
                              Mathf.Lerp(fullyOccludedLowPassFreq, AudioSettings._noLowPassFreq, bd.occlusion * bd.occlusion)));
                     }
@@ -222,8 +221,8 @@ namespace VoxelAudio
                         int vI = voxI + (vOffsets[i] * step);
                         if (VoxHelpBurst.IsWVoxIndexValidFast(vI, vWorld) == false) continue;
 
-                        ushort vD = voxsDis[vI];//Should be impossible for it to be 0
-                        if (math.abs(vD - vDis) > step * 9) continue;
+                        ushort vD = voxsDis[vI];
+                        if (vD < 1 || math.abs(vD - vDis) > step * 9) continue;
 
                         int vDI = voxsDirectI[vI];
                         resultDirection += ((vDI < 0 ? pos : VoxHelpFunc.WVoxIndexToPos_snapped(vDI, vWorld))
