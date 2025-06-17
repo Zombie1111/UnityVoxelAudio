@@ -29,8 +29,9 @@ Normal FMOD cost + extra reverb and lowpass filter for every EventInstance.
 
 <ol>
   <li>Setup FMOD and UnityVoxelSystem</li>
-  <li>Download and copy the <code>_Demo</code>, <code>Scripts</code> and <code>Resources</code> folders into an empty folder inside your <code>Assets</code> directory</li>
-  <li>Open <code>Tools->Raytraced Audio->Edit Settings</code>code> and add your FMOD buses to the list</li>
+  <li>Download and copy the <code>_Demo</code>, <code>Scripts</code> and <code>Resources</code> folders into an empty folder inside your <code>Assets</code> directory.
+  Make sure VoxelSystem assembly is referenced by <code>Scripts/VoxelAudio</code> assembly</li>
+  <li>Open <code>Tools->Voxel Audio->Edit Settings</code>code> and add your FMOD buses to the list</li>
 </ol>
 
 ```c#

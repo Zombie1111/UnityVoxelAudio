@@ -61,8 +61,23 @@ namespace VoxelAudio
 
         public AudioReference(string eventPath, AudioConfigAsset audioConfigOverride = null)
         {
-            clip = EventReference.Find(eventPath);
             this.audioConfigOverride = audioConfigOverride;
+
+#if UNITY_EDITOR
+            if (Application.isPlaying == false)
+            {
+                clip = EventReference.Find(eventPath);
+                return;
+            }
+#endif
+            
+            clip = new()
+            {
+                    Guid = RuntimeManager.PathToGUID(eventPath),
+#if UNITY_EDITOR
+                    Path = eventPath,
+#endif
+            };
         }
 
         [SerializeField] internal EventReference clip;
@@ -167,6 +182,14 @@ namespace VoxelAudio
         public AudioReference ShallowCopy()
         {
             return (AudioReference)this.MemberwiseClone();
+        }
+
+        /// <summary>
+        /// Returns true if a clip has been assigned to the reference
+        /// </summary>
+        public bool HasValidClip()
+        {
+            return !clip.IsNull;
         }
     }
 

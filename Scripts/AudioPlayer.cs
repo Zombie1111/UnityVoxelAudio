@@ -79,6 +79,14 @@ namespace VoxelAudio
             Stop();
         }
 
+        /// <summary>
+        /// Prefer to use Play(), This is if you wanna call it from a Unity Event
+        /// </summary>
+        public void PlaySimple()
+        {
+            Play();
+        }
+
         public AudioInstanceWrap Play(AudioProps props = null)
         {
             if (stopOnDisable == true && isActive == false) return new();//Dont allow playing if disabled

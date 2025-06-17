@@ -38,7 +38,7 @@ namespace VoxelAudio
             cr_job = new()
             {
                 aisReverbData_native = aisReverbData_native,
-                rayHits = rayHits.AsReadOnly(),
+                rayHits = rayHits.AsReadOnly(),                
             };
 
             unsafe

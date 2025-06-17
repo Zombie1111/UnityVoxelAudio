@@ -99,5 +99,13 @@ namespace VoxelAudio
         {
             return audioRef.ShallowCopy();
         }
+
+        /// <summary>
+        /// Returns true if a clip has been assigned to the reference
+        /// </summary>
+        public bool HasValidClip()
+        {
+            return audioRef.HasValidClip();
+        }
     }
 }

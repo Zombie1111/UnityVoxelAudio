@@ -201,8 +201,6 @@ namespace VoxelAudio
         /// </summary>
         private readonly List<AudioInstance> allAIs = new(64);
 
-
-
         /// <summary>
         /// Returns all active AudioInstances
         /// </summary>
@@ -213,7 +211,7 @@ namespace VoxelAudio
             {
                 ais = allAIs.ToArray();
             }
-
+            
             return ais;
         }
 

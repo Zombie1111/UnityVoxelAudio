@@ -318,7 +318,7 @@ namespace VoxelAudio
             public readonly int Register(SurfaceType type, int surfI = -1, bool wasSurfaceConfig = false)
             {
                 OnBeforeAudioSurfacesWrite?.Invoke();//Make sure jobs aint running
-
+                
                 if (surfI > -1 && surfI < surfaces.Count)
                 {
                     surfaces[surfI] = this;
