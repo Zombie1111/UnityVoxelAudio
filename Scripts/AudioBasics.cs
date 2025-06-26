@@ -173,7 +173,7 @@ namespace VoxelAudio
                 }
 
                 //Get source vox
-                int voxI = VoxHelpFunc.PosToWVoxIndex_snapped(pos, vWorld, out Vector3 snappedPos, 1);
+                int voxI = VoxHelpFunc.PosToWVoxIndex_snapped(pos, vWorld, out Vector3 snappedPos, 2);
                 ushort vDis = voxsDis[voxI];
 
                 if ((camExtraDis > 0.0f && snappedPos != pos) || vDis < 1)

@@ -6,7 +6,6 @@ using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using zombVoxels;
-using Unity.Mathematics;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -14,7 +13,7 @@ using UnityEditor;
 
 namespace VoxelAudio
 {
-    internal class AudioOcclusion
+    public class AudioOcclusion
     {
         #region Main
         private static bool isInitialized = false;
@@ -398,84 +397,35 @@ namespace VoxelAudio
         }
         #endregion Compute voxels
 
-        private const int sampleStepSize = 6;
-        private const int sampleStepCount = 1;
+        #region Help Methods
 
-        public static unsafe float SampleOcclusionAtPos(Vector3 pos, out Vector3 resultDirection, out float occludedAmount)
+        /// <summary>
+        /// Returns the occluded distance between pos and listener, isOccluded is < 0 if not occluded
+        /// </summary>
+        /// <param name="isOccluded">If >= 0 the position is occluded and isDirectlyVisible is the nearest directly visible voxel index</param>
+        public static unsafe float SampleOcclusionAtPos(Vector3 pos, out int isOccluded)
         {
-            if (voxHandler == null)
+            if (hasComputedOcclusion == false)
             {
-                resultDirection = (pos - AudioManager.camPos).normalized;
-                occludedAmount = 0.0f;
+                isOccluded = -1;
+                return Vector3.Distance(AudioManager.camPos, pos);
+            }
+
+            int voxI = VoxHelpFunc.PosToWVoxIndex_snapped(pos, voxHandler._voxWorldReadonly, out Vector3 snappedPos, 2);
+            ushort vDis = readFlip.voxsDis[voxI];
+
+            if ((readFlip.camExtraDis > 0.0f && snappedPos != pos) || vDis < 1)
+            {
+                //Both sample pos and cam is outside grid or we are inside audio source
+                isOccluded = -1;
                 return Vector3.Distance(pos, AudioManager.camPos);
             }
 
-            //Get source vox
-            int voxI = VoxHelpFunc.PosToWVoxIndex_snapped(pos, voxHandler._voxWorldReadonly, out Vector3 snappedPos, 1);
-            if (readFlip.camExtraDis > 0.0f && snappedPos != pos)
-            {
-                //Both sample pos and cam is outside grid
-                resultDirection = (pos - AudioManager.camPos).normalized;
-                occludedAmount = 0.0f;
-                return Vector3.Distance(pos, AudioManager.camPos);
-            }
-
-            float vDis = readFlip.voxsDis[voxI];
-            int[] vOffsets = voxHandler._voxWorldReadonly.GetVoxDirs();
-
-            if (vDis > AudioSettings._voxComputeDistanceVox)
-            {
-                for (int i = 1; i < vOffsets.Length; i++)
-                {
-                    int vI = voxI + vOffsets[i];
-                    float vD = readFlip.voxsDis[vI];
-                    if (vD > AudioSettings._voxComputeDistanceVox) continue;
-
-                    vDis = vD;
-                    voxI = vI;
-                    break;
-                }
-
-                //Unhearable?
-                if (vDis > AudioSettings._voxComputeDistanceVox)
-                {
-                    resultDirection = (pos - AudioManager.camPos).normalized;
-                    occludedAmount = 0.0f;
-                    return AudioSettings._voxComputeDistanceMeter;
-                }
-            }
-
-            //Direct?
-            int vDirectI = readFlip.voxsDirectI[voxI];
-
-            //Sample multiple points for smoother direction
-            resultDirection = ((vDirectI < 0 ? pos : VoxHelpFunc.WVoxIndexToPos_snapped(vDirectI, voxHandler._voxWorldReadonly))
-                - AudioManager.camPos).normalized * (100.0f / vDis);
-            int maxStepValue = sampleStepCount * sampleStepSize;
-
-            for (int step = sampleStepSize; step <= maxStepValue; step += sampleStepCount)
-            {
-                for (int i = 1; i < vOffsets.Length; i++)
-                {
-                    int vI = voxI + (vOffsets[i] * step);
-                    if (VoxHelpBurst.IsWVoxIndexValidFast(vI, voxHandler._voxWorldReadonly) == false) continue;
-
-                    float vD = readFlip.voxsDis[vI];
-                    if (math.abs(vD - vDis) > step * 9) continue;
-
-                    int vDI = readFlip.voxsDirectI[vI];
-                    resultDirection += ((vDI < 0 ? pos : VoxHelpFunc.WVoxIndexToPos_snapped(vDI, voxHandler._voxWorldReadonly))
-                        - AudioManager.camPos).normalized * (100.0f / vD);
-                }
-            }
-
-            resultDirection.Normalize();
-            float airDis = Vector3.Distance(pos, AudioManager.camPos);
-            float oDis = ((vDis / 5) * VoxGlobalSettings.voxelSizeWorld) + Vector3.Distance(snappedPos, pos) + readFlip.camExtraDis;
-            occludedAmount = Mathf.Clamp01((oDis - (airDis + AudioSettings._occludedFilterDisM)) / AudioSettings._occludedFilterDisM);
-
-            return oDis;
+            isOccluded = readFlip.voxsDirectI[voxI];
+            return ((vDis / 5.0f) * VoxGlobalSettings.voxelSizeWorld) + Vector3.Distance(snappedPos, pos) + readFlip.camExtraDis;
         }
+
+        #endregion Help Methods
 
         #region Debug
 
