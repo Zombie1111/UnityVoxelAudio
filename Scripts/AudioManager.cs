@@ -63,7 +63,15 @@ namespace VoxelAudio
         #region Main
 
         private bool isInitilized = false;
-        internal static StudioListener listener = null;
+        private static StudioListener listener = null;
+        public static StudioListener _listener
+        {
+            get
+            {
+                if (listener == null && Application.isPlaying == true) Initilize();
+                return listener;
+            }
+        }
 
         /// <summary>
         /// Sets the listener to use, if null it will try to find one in the scene. Returns true if listener is valid
@@ -158,7 +166,7 @@ namespace VoxelAudio
 
             //Tick underwater
             float deltaTime = Time.deltaTime;
-            underwaterAmount = Mathf.Lerp(underwaterAmount, AudioSettings._isUnderwater == false ? 1.0f : 0.0f, AudioSettings._occlusionLerpSpeed * deltaTime);
+            underwaterAmount = Mathf.Lerp(underwaterAmount, AudioSettings._isUnderwater == false ? 1.0f : 0.0f, AudioSettings._waterLerpSpeed * deltaTime);
             currentUnderwaterFreq = Mathf.Lerp(AudioSettings._underwaterLowPassFreq, AudioSettings._noLowPassFreq, underwaterAmount * underwaterAmount);
 
             //Tick sources

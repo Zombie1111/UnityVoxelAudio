@@ -79,6 +79,11 @@ namespace VoxelAudio
         private static bool voxelSystemIsValid = false;
         internal static bool hasComputedOcclusion = false;
 
+        /// <summary>
+        /// Returns the listener position at last occlusion update, returns current listener position if no occlusion has been computed
+        /// </summary>
+        public static Vector3 _lastCamPos => hasComputedOcclusion == true ? readFlip.camPos : AudioManager.camPos;
+
         private static unsafe void OnClearVoxelSystem()
         {
             if (voxelSystemIsValid == false) return;
@@ -128,7 +133,7 @@ namespace VoxelAudio
 
         #region Compute voxels
 
-        private const int _searchQueueSize = 524288;
+        private const int _searchQueueSize = 786432;
         private static ComputeOcclusion_job o_job;
         private static CopyVoxsType_job c_job;
         private static JobHandle o_handle;
@@ -184,7 +189,12 @@ namespace VoxelAudio
         private static unsafe void OnGlobalReadAccessStart()
         {
             if (TryCompleteOcclusionJob(false) == false) return;
-            if (o_jobIsActive == true || voxelSystemIsValid == false || AudioSettings._globalAudioEffects.HasOcclusion() == false) return;
+            if (o_jobIsActive == true || voxelSystemIsValid == false) return;
+            if (AudioSettings._globalAudioEffects.HasOcclusion() == false)
+            {
+                hasComputedOcclusion = false;
+                return;
+            }
 
             //Get empty pos
             if (VoxHelpFunc.GetClosestVisibleAirVoxel(AudioManager.camPos, voxHandler._voxWorldReadonly, o_job.voxsType, out int voxI, out Vector3 voxPos,
@@ -207,11 +217,6 @@ namespace VoxelAudio
             c_jobIsActive = true;
             c_handle = c_job.Schedule();
             o_handle = o_job.Schedule(c_handle);
-
-            //VoxHelpFunc.Debug_toggleTimer();
-            //OnGlobalReadAccessStop();
-            //TryCompleteOcclusionJob(true);
-            //VoxHelpFunc.Debug_toggleTimer();
         }
 
         private static bool TryCompleteOcclusionJob(bool forceComplete)
@@ -239,8 +244,10 @@ namespace VoxelAudio
         }
 
         private const int voxMargin = 1;
-        private const byte passthroughVoxI = 0;//Useful for doors, allows audio to go through put with a penalty of passthroughExtraVoxDis. Use 0 if unused
-        private const ushort passthroughExtraVoxDis = 100;
+        private const byte passthroughVoxType = VoxGlobalSettings.doorVoxType;//Useful for doors, allows audio to go through but with a penalty of passthroughExtraVoxDis. Put 0 if unused
+        private const byte passthroughVoxType2 = VoxGlobalSettings.rbVoxType;//Same as above, I use this for some rigidbodies
+        private const ushort passthroughExtraVoxDis = 50;
+        private const ushort passthroughExtraVoxDis2 = 0;
 
         [BurstCompile]
         private unsafe struct CopyVoxsType_job : IJob
@@ -358,27 +365,34 @@ namespace VoxelAudio
                     for (int i = 0; i < 26; i++)
                     {
                         int nextVoxI = voxI + voxDirs[i];
-                        if (voxsDis[nextVoxI] < 65000) continue;//Old value is better, why does comparing against constant value give similar result as nextDis, comparing with constant should be wrong
-                                                                //if (nextVoxI < 0 || nextVoxI >= vWorld.vCountXYZ) continue;
-                                                                //if (voxsDis[nextVoxI] <= nextDis) continue;//Old value is better
+                        ushort nextDis = (ushort)(activeDis + voxDirsDis[i]);
+                        //if (voxsDis[nextVoxI] < 65000) continue;//Old value is better, why does comparing against constant value give similar result as nextDis, comparing with constant should be wrong
+                        //if (nextVoxI < 0 || nextVoxI >= vWorld.vCountXYZ) continue;
+                        if (voxsDis[nextVoxI] <= nextDis) continue;//Old value is better
 
                         voxsDirectI[nextVoxI] = directVoxI;
-                        ushort nextDis = (ushort)(activeDis + voxDirsDis[i]);
-                        voxsDis[nextVoxI] = nextDis;
-                        if (nextDis > maxHearRadiusVox) continue;
 
                         byte nextVoxType = voxsType[nextVoxI];
-                        //if (nextVoxType > VoxGlobalSettings.solidTypeStart)
+
                         if (nextVoxType > 0)
                         {
-                            if (nextVoxType == passthroughVoxI) nextDis += passthroughExtraVoxDis;
-                            else if (nextVoxType > VoxGlobalSettings.solidTypeStart) continue;
+                            if (nextVoxType > VoxGlobalSettings.solidTypeStart)
+                            {
+                                voxsDis[nextVoxI] = nextDis;
+                                continue;
+                            }
+                            if (nextVoxType == passthroughVoxType) nextDis += passthroughExtraVoxDis;
+                            else if (nextVoxType == passthroughVoxType2) nextDis += passthroughExtraVoxDis2;
+                            //else if (nextVoxType > VoxGlobalSettings.solidTypeStart && nextVoxType != ) continue;
                         }
+
+                        voxsDis[nextVoxI] = nextDis;
+                        if (nextDis > maxHearRadiusVox) continue;
 
 #if UNITY_EDITOR
                         if (queueCount == _searchQueueSize)//Off by 1 but who cares, only for logging, wont throw if full
                         {
-                            if (hasLogged == false) Debug.LogError("Search queue is full!");
+                            if (hasLogged == false) Debug.LogWarning("Search queue is full, occlusion may be wrong!");//No risk for out of bounds if full, just wrong occlusion
                             hasLogged = true;
                             break;
                         }
@@ -418,7 +432,7 @@ namespace VoxelAudio
             {
                 //Both sample pos and cam is outside grid or we are inside audio source
                 isOccluded = -1;
-                return Vector3.Distance(pos, AudioManager.camPos);
+                return Vector3.Distance(pos, readFlip.camPos);
             }
 
             isOccluded = readFlip.voxsDirectI[voxI];

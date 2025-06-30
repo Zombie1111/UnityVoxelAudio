@@ -128,6 +128,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 213674195}
+  - component: {fileID: 213674196}
   m_Layer: 0
   m_Name: Normal
   m_TagString: Untagged
@@ -162,6 +163,25 @@ Transform:
   - {fileID: 397787887}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &213674196
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 213674193}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8613df72d93e2584392478b8f863f695, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  surfaceType: 0
+  surfaceOverrides:
+    reflectness: -1
+    metallicness: -1
+    brightness: -1
+    tail: -1
+  ownSurfaceInstance: 0
 --- !u!1 &263883387
 GameObject:
   m_ObjectHideFlags: 0
@@ -1101,7 +1121,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   doPlaceTransform: 1
+  snapToGeometry: 1
   closestTo: {fileID: 0}
+  createdShapes: []
 --- !u!4 &593327496
 Transform:
   m_ObjectHideFlags: 0
@@ -4092,7 +4114,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8613df72d93e2584392478b8f863f695, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  surfaceType: 3
+  surfaceType: 1
   surfaceOverrides:
     reflectness: -1
     metallicness: -1

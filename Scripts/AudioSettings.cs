@@ -50,10 +50,12 @@ namespace VoxelAudio
 
             //Occlusion
             _occlusionLerpSpeed = occlusionLerpSpeed;
+            _waterLerpSpeed = waterLerpSpeed;
             _voxComputeDistanceMeter = voxComputeDistance;
             _voxComputeDistanceVox = Mathf.RoundToInt((voxComputeDistance * 5) / VoxGlobalSettings.voxelSizeWorld);
             _indirectExtraDistanceVox = (ushort)Mathf.RoundToInt((indirectExtraDistanceMeter * 5) / VoxGlobalSettings.voxelSizeWorld);
-            _occludedFilterDisM = occludedFilterDisM;
+            _occludedFilterStart = occludedFilterStart;
+            _occludedFilterEnd = occludedFilterEnd;
             _fullyOccludedLowPassFreq = fullyOccludedLowPassFreq;
             _underwaterLowPassFreq = underwaterLowPassFreq;
             _voxSnapDistance = voxSnapDistance;
@@ -151,20 +153,26 @@ namespace VoxelAudio
         [Tooltip("If listener is inside solid voxels, radius in voxels to check for empty space")]
         [SerializeField] private int voxSnapDistance = 3;
         internal static int _voxSnapDistance = 3;
-        [SerializeField] private float occlusionLerpSpeed = 8.0f;
-        internal static float _occlusionLerpSpeed = 8.0f;
+        [SerializeField] private float occlusionLerpSpeed = 4.0f;
+        internal static float _occlusionLerpSpeed = 4.0f;
         [SerializeField] private float voxComputeDistance = 70.0f;
         internal static float _voxComputeDistanceMeter = 70.0f;
         internal static int _voxComputeDistanceVox = 700;
         [SerializeField] private ushort indirectExtraDistanceMeter = 3;
         internal static ushort _indirectExtraDistanceVox = 30;
-        [SerializeField] private float occludedFilterDisM = 10.0f;
-        internal static float _occludedFilterDisM = 10.0f;
+        [SerializeField] private float occludedFilterStart = 4.0f;
+        internal static float _occludedFilterStart = 4.0f;
+        [SerializeField] private float occludedFilterEnd = 8.0f;
+        internal static float _occludedFilterEnd = 8.0f;
         [SerializeField] private float fullyOccludedLowPassFreq = 600.0f;
         internal static float _fullyOccludedLowPassFreq = 600.0f;
+
+        [Header("Water")]
         [Tooltip("At runtime call AudioSettings.SetIsUnderwater() to toggle underwater filter")]
         [SerializeField] private float underwaterLowPassFreq = 400.0f;
         internal static float _underwaterLowPassFreq = 400.0f;
+        [SerializeField] private float waterLerpSpeed = 8.0f;
+        internal static float _waterLerpSpeed = 8.0f;
         internal static bool _isUnderwater = false;
 
         internal const float _noLowPassFreq = 17000.0f;

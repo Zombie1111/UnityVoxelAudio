@@ -14,21 +14,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   buses:
   - path: 
-    isPausable: 1
-  - path: testAA Bus
-    isPausable: 1
+    isPausable: 0
   defaultAudioConfigAsset: {fileID: 11400000, guid: a02b7133d3544ab44a4bbc6201852588, type: 2}
   globalAudioEffects: 0
-  minMaxDistanceFactor: 3.5
+  minMaxDistanceFactor: 3
   stopAudioOnSceneLoad: 1
   maxActiveVoices: 1024
   voxSnapDistance: 3
-  occlusionLerpSpeed: 8
-  voxComputeDistance: 70
-  indirectExtraDistanceMeter: 3
-  occludedFilterDisM: 10
+  occlusionLerpSpeed: 4
+  voxComputeDistance: 60
+  indirectExtraDistanceMeter: 0
+  occludedFilterStart: 4
+  occludedFilterEnd: 8
   fullyOccludedLowPassFreq: 600
   underwaterLowPassFreq: 400
+  waterLerpSpeed: 8
   defaultSurfaceType: 0
   registerAllCollidersOnSceneLoad: 1
   defaultAudioSurfaces:
@@ -47,124 +47,95 @@ MonoBehaviour:
     - pipe
     - container
     - barrel
+    - metal
+    - buildBlock
+    - paintBone
+    - armor
+    - detail
     surface:
-      reflectness: 0.55
-      metallicness: 0.2
-      brightness: 0.6
-      tail: 1
+      reflectness: 0.6
+      metallicness: 0.5
+      brightness: 1
+      tail: 0.4
   - type: 2
     materialNames:
-    - metal
-    - gold
-    - iron
-    - wire
-    - net
+    - crystal
     surface:
-      reflectness: 0.55
-      metallicness: 0.3
-      brightness: 0.6
-      tail: 1
+      reflectness: 0.6
+      metallicness: 0.5
+      brightness: 1
+      tail: 0.4
   - type: 3
     materialNames:
-    - porcelain
-    - sink
-    - vase
-    - bath
-    surface:
-      reflectness: 0.4
-      metallicness: 0.13
-      brightness: 0.6
-      tail: 1
-  - type: 4
-    materialNames:
-    - concrete
-    - wall
+    - tiles
     - floor
-    - gravel
-    - ceiling
-    - cemet
-    - paint
-    - stair
-    surface:
-      reflectness: 0.4
-      metallicness: 0.05
-      brightness: 0.3
-      tail: 0.2
-  - type: 5
-    materialNames:
-    - stone
-    - rock
-    - cobble
-    - brick
-    surface:
-      reflectness: 0.5
-      metallicness: 0.02
-      brightness: 0.3
-      tail: 0.25
-  - type: 6
-    materialNames:
-    - wood
-    - tree
-    - plank
-    - house
-    - roof
-    - boat
-    - desk
-    - speaker
-    - fence
-    surface:
-      reflectness: 0.1
-      metallicness: 0
-      brightness: 0.4
-      tail: 0.5
-  - type: 7
-    materialNames:
-    - carpet
-    - wool
-    - blanket
-    - mattress
-    - curtain
-    - fiber
-    - cloth
-    surface:
-      reflectness: -0.5
-      metallicness: 0
-      brightness: 0
-      tail: 0
-  - type: 8
-    materialNames:
-    - glass
-    - window
-    - display
-    - monitor
-    surface:
-      reflectness: 0.5
-      metallicness: 0.13
-      brightness: 0.6
-      tail: 0.4
-  - type: 9
-    materialNames:
-    - plastic
-    - bag
-    - keyboard
-    - mouse
-    - controller
-    surface:
-      reflectness: 0.5
-      metallicness: 0
-      brightness: 0.5
-      tail: 0.2
-  - type: 10
-    materialNames: []
     surface:
       reflectness: 0
       metallicness: 0
       brightness: 0.5
       tail: 0
+  - type: 4
+    materialNames:
+    - rock
+    surface:
+      reflectness: 0.7
+      metallicness: 0
+      brightness: 0.5
+      tail: 1
+  - type: 5
+    materialNames:
+    - tree
+    - boat
+    - wood
+    - helpIcon
+    - bark
+    - house
+    surface:
+      reflectness: 0
+      metallicness: 0
+      brightness: 0.5
+      tail: 0
+  - type: 6
+    materialNames:
+    - sand
+    surface:
+      reflectness: 0.7
+      metallicness: 0
+      brightness: 0.5
+      tail: 1
+  - type: 7
+    materialNames:
+    - glass
+    - window
+    - light
+    surface:
+      reflectness: 0.6
+      metallicness: 0.1
+      brightness: 0.5
+      tail: 0.2
+  - type: 8
+    materialNames:
+    - rope
+    - wires
+    - rubber
+    - mattress
+    surface:
+      reflectness: -0.5
+      metallicness: 0
+      brightness: 0
+      tail: 0
+  - type: 9
+    materialNames: []
+    surface:
+      reflectness: 0
+      metallicness: 0
+      brightness: 0
+      tail: 0
+  noAudioSurfaceNeededLayers: 
   mask:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 1
   rayMaxDistance: 64
   reverbLerpSpeed: 8
   maxReverbVoices: 256
-  debugMode: 0
+  debugMode: 2

@@ -50,7 +50,7 @@ namespace VoxelAudio
             bd_jobIsActive = true;
 
             //Prepare
-            voxWorldNative.Value = AudioOcclusion.voxHandler == null || AudioOcclusion.readFlip == null
+            voxWorldNative.Value = AudioOcclusion.voxHandler == null || AudioOcclusion.hasComputedOcclusion == false
                 || AudioSettings._globalAudioEffects.HasOcclusion() == false ? new() : AudioOcclusion.voxHandler._voxWorldReadonly;
 
             if (AudioOcclusion.readFlip != null)
@@ -64,9 +64,11 @@ namespace VoxelAudio
             bd_job.currentUnderwaterFreq = AudioManager.currentUnderwaterFreq;
             bd_job.voiceCount = voiceCount;
             bd_job.camPos = AudioManager.camPos;
+            bd_job.camPosRead = AudioOcclusion._lastCamPos;
             bd_job.voxComputeDistanceMeter = AudioSettings._voxComputeDistanceMeter;
             bd_job.voxComputeDistanceVox = (ushort)AudioSettings._voxComputeDistanceVox;
-            bd_job.occludedFilterDisM = AudioSettings._occludedFilterDisM;
+            bd_job.occludedFilterStart = AudioSettings._occludedFilterStart;
+            bd_job.occludedFilterEnd = AudioSettings._occludedFilterEnd;
             bd_job.fullyOccludedLowPassFreq = AudioSettings._fullyOccludedLowPassFreq;
             bd_job.minMaxDistanceFactor = AudioSettings._minMaxDistanceFactor;
 
@@ -102,9 +104,11 @@ namespace VoxelAudio
             internal float currentUnderwaterFreq;
             internal int voiceCount;
             internal Vector3 camPos;
+            internal Vector3 camPosRead;
             internal float voxComputeDistanceMeter;
             internal ushort voxComputeDistanceVox;
-            internal float occludedFilterDisM;
+            internal float occludedFilterStart;
+            internal float occludedFilterEnd;
             internal float fullyOccludedLowPassFreq;
             internal float minMaxDistanceFactor;
 
@@ -133,7 +137,8 @@ namespace VoxelAudio
                         else
                         {
                             bd.occlusion = Mathf.Lerp(bd.occlusion, ocAmount, occlusionLerpDelta);
-                            bd.distance = Mathf.Lerp(bd.distance, dis, occlusionLerpDelta);
+                            bd.distance = Mathf.Lerp(bd.distance, dis, occlusionLerpDelta);//Distance calc is wrong somewhere
+                            //bd.direction = (bd.pos - camPos).normalized;
                             bd.direction = Vector3.Slerp(bd.direction, dir, occlusionLerpDelta / (1.0f + (dis / voxComputeDistanceMeter)));
                         }
 
@@ -179,9 +184,9 @@ namespace VoxelAudio
                 if ((camExtraDis > 0.0f && snappedPos != pos) || vDis < 1)
                 {
                     //Both sample pos and cam is outside grid or we are inside audio source
-                    resultDirection = (pos - camPos).normalized;
+                    resultDirection = (pos - camPosRead).normalized;
                     occludedAmount = 0.0f;
-                    return Vector3.Distance(pos, camPos);
+                    return Vector3.Distance(pos, camPosRead);
                 }
 
                 if (vDis > voxComputeDistanceVox)
@@ -233,7 +238,7 @@ namespace VoxelAudio
                 resultDirection.Normalize();
                 float airDis = Vector3.Distance(pos, camPos);
                 float oDis = ((vDis / 5.0f) * VoxGlobalSettings.voxelSizeWorld) + Vector3.Distance(snappedPos, pos) + camExtraDis;
-                occludedAmount = Mathf.Clamp01((oDis - (airDis + occludedFilterDisM)) / occludedFilterDisM);
+                occludedAmount = Mathf.Clamp01((oDis - (airDis + occludedFilterStart)) / occludedFilterEnd);
 
                 return oDis;
             }

@@ -384,6 +384,7 @@ namespace VoxelAudio
             if (parentTrans != null)
             {
                 position = parentTrans.TransformPoint(posL);
+                //if (parentTrans.name == "audioSource") Debug.Log(distance);
             }
 
             //Basic data

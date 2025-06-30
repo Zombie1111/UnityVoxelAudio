@@ -178,17 +178,16 @@ namespace VoxelAudio
         {
             defualt = 0,
             steel = 1,
-            metal = 2,
-            porcelain = 3,
-            concrete = 4,
-            rock = 5,
-            wood = 6,
-            carpet = 7,
-            glass = 8,
-            plastic = 9,
-            sky = 10,//If rays does not hit anything
+            crystal = 2,
+            concrete = 3,
+            rock = 4,
+            wood = 5,
+            sand = 6,
+            glass = 7,
+            rubber = 8,
+            sky = 9,//If rays does not hit anything
 
-            sand = 11,
+
         }
 
         internal static readonly SurfaceConfig[] defualtInitSurfaces = new SurfaceConfig[]
@@ -207,15 +206,9 @@ namespace VoxelAudio
             },
             new()
             {
-                type = SurfaceType.metal,
-                materialNames = new string[] { "metal", "gold", "iron", "wire", "net" },
-                surface = new Surface() { reflectness = 0.55f, metallicness = 0.3f, brightness = 0.6f, tail = 0.7f }
-            },
-            new()
-            {
-                type = SurfaceType.porcelain,
-                materialNames = new string[] { "porcelain", "sink", "vase", "bath" },
-                surface = new Surface() { reflectness = 0.4f, metallicness = 0.13f, brightness = 0.6f, tail = 1.0f }
+                type = SurfaceType.crystal,
+                materialNames = new string[] { "crystal", },
+                surface = new Surface() { reflectness = 0.55f, metallicness = 0.2f, brightness = 0.6f, tail = 0.5f }
             },
             new()
             {
@@ -237,9 +230,9 @@ namespace VoxelAudio
             },
             new()
             {
-                type = SurfaceType.carpet,
-                materialNames = new string[] { "carpet", "wool", "blanket", "mattress", "curtain", "fiber", "cloth" },
-                surface = new Surface() { reflectness = -0.5f, metallicness = 0.0f, brightness = 0.0f, tail = 0.0f }
+                type = SurfaceType.sand,
+                materialNames = new string[] { },
+                surface = new Surface() { reflectness = 0.0f, metallicness = 0.0f, brightness = 0.5f, tail = 0.0f }
             },
             new()
             {
@@ -249,19 +242,7 @@ namespace VoxelAudio
             },
             new()
             {
-                type = SurfaceType.plastic,
-                materialNames = new string[] { "plastic", "bag", "keyboard", "mouse", "controller" },
-                surface = new Surface() { reflectness = 0.5f, metallicness = 0.0f, brightness = 0.5f, tail = 0.2f }
-            },
-            new()
-            {
                 type = SurfaceType.sky,
-                materialNames = new string[] { },
-                surface = new Surface() { reflectness = 0.0f, metallicness = 0.0f, brightness = 0.5f, tail = 0.0f }
-            },
-            new()
-            {
-                type = SurfaceType.sand,
                 materialNames = new string[] { },
                 surface = new Surface() { reflectness = 0.0f, metallicness = 0.0f, brightness = 0.5f, tail = 0.0f }
             },
