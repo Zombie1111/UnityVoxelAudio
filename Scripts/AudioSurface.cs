@@ -439,8 +439,8 @@ namespace VoxelAudio
 
                         SubMeshDescriptor subM = mesh.GetSubMesh(i);
                         triRanges.surfaceIs[i] = AudioSurface.GetSurfaceI(mats[i].name, gLayer);
-                        triRanges.mins[i] = subM.indexStart;
-                        triRanges.maxs[i] = subM.indexStart + subM.indexCount;
+                        triRanges.mins[i] = subM.indexStart / 3;
+                        triRanges.maxs[i] = (subM.indexStart + subM.indexCount) / 3;
                     }
                 }
 
@@ -631,7 +631,7 @@ namespace VoxelAudio
             {
                 Renderer rend = col.GetComponentInParent<Renderer>(true);
 
-                if (rend == null)
+                if (rend == null || rend.sharedMaterial == null)
                 {
                     if (col.sharedMaterial == null)
                     {

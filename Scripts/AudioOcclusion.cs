@@ -378,7 +378,7 @@ namespace VoxelAudio
                         {
                             if (nextVoxType > VoxGlobalSettings.solidTypeStart)
                             {
-                                voxsDis[nextVoxI] = nextDis;
+                                                        voxsDis[nextVoxI] = nextDis;
                                 continue;
                             }
                             if (nextVoxType == passthroughVoxType) nextDis += passthroughExtraVoxDis;

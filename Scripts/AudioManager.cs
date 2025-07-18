@@ -384,12 +384,14 @@ namespace VoxelAudio
                         ai.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.HFDECAYRATIO, 100.0f);
                         ai.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DIFFUSION, 100.0f);
                         ai.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DENSITY, 100.0f);
-                        ai.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.LOWSHELFFREQUENCY, 250.0f);
-                        ai.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.LOWSHELFGAIN, 0.0f);
                         ai.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.HIGHCUT, 20.0f);
                         ai.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.EARLYLATEMIX, 96.0f);
                         ai.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.WETLEVEL, 0.0f);//-80.0f for off
                         ai.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.DRYLEVEL, 0.0f);
+                        //ai.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.LOWSHELFFREQUENCY, 250.0f);
+                        //ai.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.LOWSHELFGAIN, 0.0f);
+                        ai.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.LOWSHELFFREQUENCY, 200f);
+                        ai.reverbFilter.setParameterFloat((int)FMOD.DSP_SFXREVERB.LOWSHELFGAIN, -5f);
 
                         cg.addDSP(0, ai.reverbFilter);
                     }

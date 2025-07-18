@@ -437,6 +437,10 @@ namespace VoxelAudio
             {
                 Debug.DrawLine(AudioManager.camPos, AudioManager.camPos + (0.25f * distance * direction), Color.magenta, 0.1f);
             }
+            else if (AudioSettings._debugMode == DebugMode.drawAudioPosition)
+            {
+                Debug.DrawLine(position, position + (0.1f * distance * Vector3.up));
+            }
 #endif
         }
 

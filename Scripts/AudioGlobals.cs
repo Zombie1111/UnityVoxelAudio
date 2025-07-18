@@ -239,6 +239,12 @@ namespace VoxelAudio
             this.attatchTo = attatchTo;
         }
 
+        public AudioProps(string propName1, float propValue1, string propName2, float propValue2, string propName3, float propValue3, Transform attatchTo = null)
+        {
+            customProps = new CustomProp[3] { new(propName1, propValue1), new(propName2, propValue2), new(propName3, propValue3) };
+            this.attatchTo = attatchTo;
+        }
+
         public Vector3 pos = Vector3.zero;
         public Transform attatchTo = null;
         public CustomProp[] customProps = null;
@@ -294,7 +300,14 @@ namespace VoxelAudio
         {
             if (ai == null) return;
 
-            if (customPropsOnly == false) ai.SetProps(this);
+            if (customPropsOnly == false)
+            {
+#if UNITY_EDITOR
+                if (attatchTo != null && pos.x == 0.0f && pos.y == 0.0f && pos.z == 0.0f)
+                    Debug.LogWarning("Applying all props to audio with parent " + attatchTo.name + " but worldspace pos is zero, likely unintended. Use customPropsOnly = true or assign a pos");
+#endif
+                ai.SetProps(this);
+            }
             else if (customProps != null) ai.SetCustomProps(customProps);
         }
 
@@ -306,7 +319,14 @@ namespace VoxelAudio
             AudioInstance ai = air.TryGetAudioInstance();
             if (ai == null) return;
 
-            if (customPropsOnly == false) ai.SetProps(this);
+            if (customPropsOnly == false)
+            {
+#if UNITY_EDITOR
+                if (attatchTo != null && pos.x == 0.0f && pos.y == 0.0f && pos.z == 0.0f)
+                    Debug.LogWarning("Applying all props to audio with parent " + attatchTo.name + " but worldspace pos is zero, likely unintended. Use customPropsOnly = true or assign a pos");
+#endif
+                ai.SetProps(this);
+            }
             else if (customProps != null) ai.SetCustomProps(customProps);
         }
 
@@ -355,6 +375,7 @@ namespace VoxelAudio
         drawAudioOcclusion,
         drawAudioDirection,
         drawAudioReverb,
+        drawAudioPosition,
     }
 #endif
 
